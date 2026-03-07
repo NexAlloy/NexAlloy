@@ -9,3 +9,9 @@ val hideCommentAdsFingerprint = fingerprint {
         declaredClass("LoadAdsCombinedCall", StringMatchType.Contains)
     }
 }
+
+val hideCommentAdsRendererFingerprint = fingerprint {
+    methodMatcher {
+        usingStrings(listOf("blank_ad_container"))
+    }
+}
