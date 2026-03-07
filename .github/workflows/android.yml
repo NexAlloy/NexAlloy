@@ -3,10 +3,10 @@ name: Android CI
 on:
   push:
     branches: [ "main" ]
+  workflow_dispatch:      # <--- Nút bấm chạy thủ công
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
@@ -24,13 +24,19 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Write key
+    # --- ĐÃ SỬA BƯỚC NÀY ---
+    # Tự động tạo key.jks mới và ghi đè thông tin cấu hình khớp với key đó
+    - name: Auto-generate Keystore and Properties
       run: |
-        echo KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }} > signing.properties
-        echo KEYSTORE_ALIAS=${{ secrets.KEYSTORE_ALIAS }} >> signing.properties
-        echo KEYSTORE_ALIAS_PASSWORD='${{ secrets.KEYSTORE_ALIAS_PASSWORD }}' >> signing.properties
+        # 1. Tạo file key.jks mới với mật khẩu 123456 và alias là myalias
+        rm -f key.jks
+        keytool -genkey -v -keystore key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias myalias -dname "CN=ReVanced" -storepass 123456 -keypass 123456
+        
+        # 2. Ghi thông tin đó vào signing.properties để Gradle đọc được
+        echo KEYSTORE_PASSWORD=123456 > signing.properties
+        echo KEYSTORE_ALIAS=myalias >> signing.properties
+        echo KEYSTORE_ALIAS_PASSWORD=123456 >> signing.properties
         echo KEYSTORE_FILE=../key.jks >> signing.properties
-        echo ${{ secrets.KEYSTORE }} | base64 --decode > key.jks
 
     - name: Build Debug
       run: ./gradlew assembleUniversalDebug
