@@ -13,3 +13,12 @@ val adInjectorFingerprint = findMethodDirect {
         }
     }.single()
 }
+
+val adSponsoredContentFingerprint = findMethodDirect {
+    findMethod {
+        matcher {
+            returnType = "boolean"
+            strings("SponsoredContentController.insertItem")
+        }
+    }.single()
+}
