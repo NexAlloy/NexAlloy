@@ -4,7 +4,8 @@ on:
   push:
     tags:
       - '*.*.*'
-
+  workflow_dispatch: 
+  
 jobs:
   build:
 
@@ -25,13 +26,15 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
-    - name: Write key
+    - name: Auto-generate Keystore and Properties
       run: |
-        echo KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }} > signing.properties
-        echo KEYSTORE_ALIAS=${{ secrets.KEYSTORE_ALIAS }} >> signing.properties
-        echo KEYSTORE_ALIAS_PASSWORD='${{ secrets.KEYSTORE_ALIAS_PASSWORD }}' >> signing.properties
+        rm -f key.jks
+        keytool -genkey -v -keystore key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias myalias -dname "CN=ReVanced" -storepass 123456 -keypass 123456
+        
+        echo KEYSTORE_PASSWORD=123456 > signing.properties
+        echo KEYSTORE_ALIAS=myalias >> signing.properties
+        echo KEYSTORE_ALIAS_PASSWORD=123456 >> signing.properties
         echo KEYSTORE_FILE=../key.jks >> signing.properties
-        echo ${{ secrets.KEYSTORE }} | base64 --decode > key.jks
 
     - name: Build Release
       run: ./gradlew assembleUniversalRelease
