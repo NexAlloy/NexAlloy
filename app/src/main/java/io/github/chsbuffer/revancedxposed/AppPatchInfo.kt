@@ -15,8 +15,8 @@ val appPatchConfigurations = listOf(
     AppPatchInfo("YT Music", "com.google.android.apps.youtube.music", YTMusicPatches),
     AppPatchInfo("Reddit", "com.reddit.frontpage", RedditPatches),
     AppPatchInfo("Google Photos", "com.google.android.apps.photos", GooglePhotosPatches),
-    AppPatchInfo("Instagram", "com.instagram.android", MetaPatches),
-    AppPatchInfo("Threads", "com.instagram.barcelona", MetaPatches),
+    AppPatchInfo("Instagram", "com.instagram.android", InstagramPatches),
+    AppPatchInfo("Threads", "com.instagram.barcelona", ThreadsPatches),
     AppPatchInfo("Strava", "com.strava", StravaPatches),
     AppPatchInfo("Photomath", "com.microblink.photomath", PhotomathPatches),
 )
