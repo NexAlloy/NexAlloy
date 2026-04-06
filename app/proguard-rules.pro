@@ -14,6 +14,7 @@
 #}
 
 -keep class io.github.nexalloy.MainHook { <init>(); }
+-keep class * extends com.google.protobuf.GeneratedMessageLite { *; }
 -keepnames class * extends io.github.nexalloy.morphe.Fingerprint
 -keepclassmembers class **.* {
     public <init>(android.content.Context, android.util.AttributeSet);
