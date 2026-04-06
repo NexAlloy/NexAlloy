@@ -10,6 +10,11 @@
         <package android:name="com.google.android.youtube" />
         <package android:name="com.google.android.apps.youtube.music" />
         <package android:name="com.reddit.frontpage" />
+        <package android:name="com.google.android.apps.photos" />
+        <package android:name="com.microblink.photomath" />
+        <package android:name="com.instagram.android" />
+        <package android:name="com.instagram.barcelona" />
+        <package android:name="com.strava" />
     </queries>
 
     <application

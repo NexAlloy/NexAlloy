@@ -7,9 +7,9 @@
   <br>
 </div>
 
-**Morphe LSPosed module by ChsBuffer.**  
+**ChsBuffer's LSPosed module, powered by Morphe, ReVanced, and beyond.**  
 >[!IMPORTANT]  
-> - This is **NOT an official Morphe project**, do not ask the Morphe developers for help.  
+> - This is **NOT an official Morphe or ReVanced project**, do not ask their developers for help.  
 > - **Root access** is strictly **required** to use this module!
 > - **Having issues?** Check the **[FAQ](https://github.com/NexAlloy/NexAlloy/wiki/Frequently-Asked-Questions)** before reporting.
 
@@ -54,6 +54,22 @@
 ### Reddit
 - Hide ads
 - Sanitize sharing links
+
+### Google Photos
+- Spoof Pixel XL
+
+### Photomath
+- Unlock plus
+
+### Instagram
+- Hide ads
+
+### Threads
+- Hide ads
+
+### Strava
+- Unlock subscription features
+- Disable subscription suggestions
 
 ## Supports
 [![Discord Server](https://img.shields.io/badge/Join-Discord-5865F2.svg?logo=discord)](https://discord.gg/QWUrAA2mKq)  

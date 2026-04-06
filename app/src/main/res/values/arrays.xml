@@ -4,5 +4,10 @@
         <item>com.google.android.apps.youtube.music</item>
         <item>com.google.android.youtube</item>
         <item>com.reddit.frontpage</item>
+        <item>com.google.android.apps.photos</item>
+        <item>com.microblink.photomath</item>
+        <item>com.instagram.android</item>
+        <item>com.instagram.barcelona</item>
+        <item>com.strava</item>
     </string-array>
 </resources>

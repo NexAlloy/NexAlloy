@@ -2,7 +2,7 @@
     <string name="app_name">NexAlloy</string>
     <string name="application_name">YouTube</string>
     <string name="morphe_settings">Morphe</string>
-    <string name="app_description">NexAlloy</string>
+    <string name="app_description">ChsBuffer\'s LSPosed module, powered by Morphe, ReVanced, and beyond.</string>
     <string name="app_launcher_name">PLACEHOLDER</string>
     <string name="check_for_update_title">Check for update</string>
     <string name="patch_selection">Patch Selection</string>
@@ -13,5 +13,5 @@
     <string name="hide_icon_summary">You must also disable \"Force apps to show launcher icons\" in LSPosed Manager.</string>
     <string name="faq_title">Frequently Asked Questions</string>
     <string name="module_not_activated_summary">Activate this module in Module Management!</string>
-    <string name="slogan_summary">Morphe LSPosed module by ChsBuffer.\n\nThis is not an official Morphe project, do not ask the Morphe developers for help.</string>
+    <string name="slogan_summary">ChsBuffer\'s LSPosed module, powered by Morphe, ReVanced, and beyond.\n\nThis is not an official Morphe or ReVanced project, do not ask their developers for help.</string>
 </resources>
