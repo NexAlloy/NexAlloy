@@ -40,7 +40,7 @@ data class VersionInfo(val versionCode: Int, val versionName: String) {
             val versionName: String
 
             val split = tagName.split('-', limit = 2)
-            if (split.count() > 2) {
+            if (split.count() == 2) {
                 // VersionCode-VersionName
                 versionCode = split[0].toIntOrNull() ?: 0
                 versionName = split[1]
