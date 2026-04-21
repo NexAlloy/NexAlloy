@@ -54,7 +54,7 @@ val RememberVideoQuality = patch {
     // Inject a call to remember the selected quality for Shorts.
     ::videoQualityItemOnClickFingerprint.hookMethod {
         before { param ->
-            RememberVideoQualityPatch.userChangedQuality(param.args[2] as Int)
+            RememberVideoQualityPatch.userChangedShortsQuality(param.args[2] as Int)
         }
     }
 
