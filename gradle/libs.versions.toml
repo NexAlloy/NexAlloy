@@ -4,15 +4,15 @@ dexkit = "2.2.0"
 xposed = "82"
 annotation = "1.10.0"
 gson = "2.14.0"
-kotlinxCoroutinesAndroid = "1.10.2"
+kotlinxCoroutinesAndroid = "1.11.0"
 fuel = "3.0.0-alpha04"
-junit = "6.0.3"
+junit = "6.1.0"
 jadx = "1.5.5"
-slf4j = "2.0.17"
+slf4j = "2.0.18"
 
 androidx-javascriptengine = "1.1.0-alpha01"
 protobuf = "0.10.0"
-protoc = "4.34.1"
+protoc = "4.35.0"
 
 [libraries]
 dexkit = { group = "org.luckypray", name = "dexkit", version.ref = "dexkit" }
