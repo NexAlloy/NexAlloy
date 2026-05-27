@@ -9,6 +9,8 @@ import io.github.nexalloy.morphe.methodCall
 import io.github.nexalloy.morphe.opcode
 import io.github.nexalloy.morphe.resourceLiteral
 import io.github.nexalloy.morphe.string
+import io.github.nexalloy.morphe.InstructionLocation.MatchAfterImmediately
+import io.github.nexalloy.morphe.InstructionLocation.MatchAfterWithin
 
 private val ADD_METHOD_CALL = methodCall(
     opcode = Opcode.INVOKE_VIRTUAL,
@@ -55,8 +57,7 @@ internal object PlayerOverlayTimelyShelfFingerprint : Fingerprint(
     parameters = listOf("Ljava/lang/Object;"),
     filters = listOf(
         string("player_overlay_timely_shelf"),
-        string("innertube_cue_range"),
-        string("Null id"),
-        string("Null onExitActions")
+        methodCall(smali = "Ljava/lang/String;->equals(Ljava/lang/Object;)Z", location = MatchAfterWithin(5)),
+        opcode(Opcode.MOVE_RESULT, MatchAfterImmediately())
     )
 )
