@@ -13,8 +13,9 @@ import android.os.Bundle
 import android.preference.Preference
 import android.preference.PreferenceCategory
 import android.preference.PreferenceFragment
-import android.preference.SwitchPreference
 import android.text.format.DateUtils
+import android.view.Menu
+import android.view.MenuItem
 import android.window.OnBackInvokedDispatcher
 import app.morphe.extension.shared.Utils
 import app.morphe.extension.shared.settings.preference.about.MorpheAboutPreference
@@ -26,6 +27,7 @@ import io.github.nexalloy.common.UpdateChecker
 import kotlin.system.exitProcess
 
 class SettingsActivity : Activity() {
+    private lateinit var aboutPreference: MorpheAboutPreference
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,10 +40,57 @@ class SettingsActivity : Activity() {
         }
         setContentView(R.layout.activity_settings)
         actionBar?.setDisplayShowHomeEnabled(true)
+
+        Utils.setContext(this)
+        aboutPreference = MorpheAboutPreference(this).apply {
+            setTitle(R.string.about_title)
+        }
+
         if (savedInstanceState != null) return
 
         fragmentManager.beginTransaction().replace(R.id.settings_container, SettingsFragment())
             .commit()
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.xp_settings_menu, menu)
+        return true
+    }
+
+    override fun onPrepareOptionsMenu(menu: Menu): Boolean {
+        val aliasName = ComponentName(this, SettingsActivity::class.java.name + "Alias")
+        menu.findItem(R.id.menu_hide_icon).isChecked =
+            packageManager.getComponentEnabledSetting(aliasName) == PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+        menu.findItem(R.id.menu_disable_auto_check).isChecked =
+            getSharedPreferences("prefs", MODE_WORLD_READABLE)
+                .getBoolean("disable_auto_check_update", false)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.menu_about -> {
+                aboutPreference.onPreferenceClickListener?.onPreferenceClick(aboutPreference)
+                true
+            }
+            R.id.menu_hide_icon -> {
+                val newChecked = !item.isChecked
+                item.isChecked = newChecked
+                val aliasName = ComponentName(this, SettingsActivity::class.java.name + "Alias")
+                val status = if (newChecked) PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+                             else PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+                packageManager.setComponentEnabledSetting(aliasName, status, PackageManager.DONT_KILL_APP)
+                true
+            }
+            R.id.menu_disable_auto_check -> {
+                val newChecked = !item.isChecked
+                item.isChecked = newChecked
+                getSharedPreferences("prefs", MODE_WORLD_READABLE)
+                    .edit().putBoolean("disable_auto_check_update", newChecked).apply()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 
     @Deprecated("Deprecated in Java")
@@ -77,16 +126,9 @@ class SettingsActivity : Activity() {
             Utils.setContext(context)
 
             Preference(context).apply {
-                summary = "This app uses code from Morphe. To learn more, visit https://morphe.software"
-                intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://morphe.software"))
-                rootScreen.addPreference(this)
-            }
-
-            MorpheAboutPreference(context).apply {
-                setTitle(R.string.about_title)
                 summary =
-                    """Version: ${BuildConfig.VERSION_NAME} (${BuildConfig.COMMIT_HASH}) ${BuildConfig.BUILD_TYPE} 
-                       |Build Date: ${DateUtils.getRelativeTimeSpanString(BuildConfig.COMMIT_DATE * 1000)}""".trimMargin()
+                    "This app uses code from Morphe. To learn more, visit https://morphe.software"
+                intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://morphe.software"))
                 rootScreen.addPreference(this)
             }
 
@@ -103,6 +145,9 @@ class SettingsActivity : Activity() {
 
             Preference(context).apply {
                 setTitle(R.string.check_for_update_title)
+                summary =
+                    """Current version: ${BuildConfig.VERSION_NAME} (${BuildConfig.COMMIT_HASH}) ${BuildConfig.BUILD_TYPE}
+                       |Build Date: ${DateUtils.getRelativeTimeSpanString(BuildConfig.COMMIT_DATE * 1000)}""".trimMargin()
                 setOnPreferenceClickListener {
                     UpdateChecker().apply {
                         setActivity(activity)
@@ -115,28 +160,6 @@ class SettingsActivity : Activity() {
             UpdateChecker().apply {
                 setActivity(activity)
                 autoCheckUpdate()
-            }
-
-            SwitchPreference(context).apply {
-                setTitle(R.string.hide_icon_title)
-                setSummary(R.string.hide_icon_summary)
-                val aliasName = ComponentName(activity, SettingsActivity::class.java.name + "Alias")
-                val packageManager = activity.packageManager
-
-                isChecked =
-                    packageManager.getComponentEnabledSetting(aliasName) == PackageManager.COMPONENT_ENABLED_STATE_DISABLED
-                setOnPreferenceChangeListener { _, newValue ->
-                    val isShow = newValue as Boolean
-                    val status =
-                        if (isShow) PackageManager.COMPONENT_ENABLED_STATE_DISABLED else PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-                    if (packageManager.getComponentEnabledSetting(aliasName) != status) {
-                        packageManager.setComponentEnabledSetting(
-                            aliasName, status, PackageManager.DONT_KILL_APP
-                        )
-                    }
-                    true
-                }
-                rootScreen.addPreference(this)
             }
 
             val isModuleActivated: Boolean = try {

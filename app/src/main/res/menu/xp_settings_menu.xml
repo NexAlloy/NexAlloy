@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/menu_about"
+        android:title="@string/about_title"
+        android:showAsAction="never" />
+    <item
+        android:id="@+id/menu_hide_icon"
+        android:title="@string/hide_icon_title"
+        android:checkable="true"
+        android:showAsAction="never" />
+    <item
+        android:id="@+id/menu_disable_auto_check"
+        android:title="@string/disable_auto_check_update_title"
+        android:checkable="true"
+        android:showAsAction="never" />
+</menu>

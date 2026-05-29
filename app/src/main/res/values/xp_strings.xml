@@ -12,6 +12,7 @@
     <string name="hide_icon_title">Hide icon from launcher</string>
     <string name="hide_icon_summary">You must also disable \"Force apps to show launcher icons\" in LSPosed Manager.</string>
     <string name="faq_title">Frequently Asked Questions</string>
+    <string name="disable_auto_check_update_title">Disable auto update check</string>
     <string name="module_not_activated_summary">Activate this module in Module Management!</string>
     <string name="slogan_summary">ChsBuffer\'s LSPosed module, powered by Morphe, ReVanced, and beyond.\n\nThis is not an official Morphe or ReVanced project, do not ask their developers for help.</string>
 </resources>
