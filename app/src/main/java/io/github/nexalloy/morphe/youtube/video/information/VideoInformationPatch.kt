@@ -8,10 +8,12 @@ import de.robv.android.xposed.XposedHelpers
 import io.github.nexalloy.findFirstFieldByExactType
 import io.github.nexalloy.getStaticObjectField
 import io.github.nexalloy.morphe.youtube.shared.VideoQualityClass
+import io.github.nexalloy.morphe.youtube.video.playerresponse.Hook
 import io.github.nexalloy.morphe.youtube.video.playerresponse.PlayerResponseMethodHook
-import io.github.nexalloy.morphe.youtube.video.playerresponse.playerResponseBeforeVideoIdHooks
-import io.github.nexalloy.morphe.youtube.video.playerresponse.playerResponseVideoIdHooks
+import io.github.nexalloy.morphe.youtube.video.playerresponse.addPlayerResponseMethodHook
 import io.github.nexalloy.morphe.youtube.video.videoid.VideoId
+import io.github.nexalloy.morphe.youtube.video.videoid.hookPlayerResponsePlaylistId
+import io.github.nexalloy.morphe.youtube.video.videoid.hookPlayerResponseVideoId
 import io.github.nexalloy.morphe.youtube.video.videoid.videoIdHooks
 import io.github.nexalloy.patch
 import io.github.nexalloy.scopedHook
@@ -154,15 +156,17 @@ val VideoInformationPatch = patch(
      * Inject call for video ids
      */
     videoIdHooks.add { VideoInformation.setVideoId(it) }
-    playerResponseVideoIdHooks.add { id, z -> VideoInformation.setPlayerResponseVideoId(id, z) }
+    // rvxp: currently this is only used for ReloadVideoButtonPatch
+//    hookPlayerResponsePlaylistId(VideoInformation::setPlayerResponsePlaylistId)
+    hookPlayerResponseVideoId(VideoInformation::setPlayerResponseVideoId)
 
     // Call before any other video id hooks,
     // so they can use VideoInformation and check if the video id is for a Short.
-    playerResponseBeforeVideoIdHooks.add { protobuf, videoId, isShortAndOpeningOrPlaying ->
-        VideoInformation.newPlayerResponseSignature(
-            protobuf, videoId, isShortAndOpeningOrPlaying
+    addPlayerResponseMethodHook(
+        Hook.ProtoBufferParameterBeforeVideoId(
+            VideoInformation::newPlayerResponseSignature
         )
-    }
+    )
 
     /*
      * Set the video time method
@@ -242,6 +246,7 @@ val VideoInformationPatch = patch(
         override fun hashCode(): Int = quality.hashCode()
     }
 
+    // Detect video quality changes and override the current quality.
     ::videoQualitySetterFingerprint.hookMethod {
         val onItemClickListenerClass = ::onItemClickListenerClassReference.field
         val setQualityField = ::setQualityFieldReference.field
@@ -262,6 +267,8 @@ val VideoInformationPatch = patch(
             )
         }
     }
+
+    // TODO ChannelInformationFingerprint
 
     onCreateHook.add { VideoInformation.initialize(it) }
     videoSpeedChangedHook.add { VideoInformation.videoSpeedChanged(it) }

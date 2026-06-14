@@ -13,11 +13,10 @@ val DisableVideoCodecs = patch(
     description = "Adds options to disable HDR and VP9 codecs.",
 ) {
     PreferenceScreen.VIDEO.addPreferences(
-        SwitchPreference("morphe_disable_hdr_video", summaryKey = null),
+        SwitchPreference("morphe_disable_hdr_video"),
         SwitchPreference(
             key = "morphe_force_avc_codec",
-            tag = app.morphe.extension.youtube.settings.preference.ForceAVCSwitchPreference::class.java,
-            summaryKey = null
+            tag = app.morphe.extension.youtube.settings.preference.ForceAVCSwitchPreference::class.java
         )
     )
 

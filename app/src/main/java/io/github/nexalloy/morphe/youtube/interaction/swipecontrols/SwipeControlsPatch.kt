@@ -26,14 +26,14 @@ val SwipeControls = patch(
 
 //    if (!is_20_34_or_greater) {
 //        PreferenceScreen.SWIPE_CONTROLS.addPreferences(
-//            SwitchPreference("morphe_swipe_change_video")
+//            SwitchPreference("morphe_swipe_change_video", summary = true)
 //        )
 //    }
 
     PreferenceScreen.SWIPE_CONTROLS.addPreferences(
-        SwitchPreference("morphe_swipe_brightness"),
-        SwitchPreference("morphe_swipe_volume"),
-        SwitchPreference("morphe_swipe_speed"),
+        SwitchPreference("morphe_swipe_brightness", summary = true),
+        SwitchPreference("morphe_swipe_volume", summary = true),
+        SwitchPreference("morphe_swipe_speed", summary = true),
         NonInteractivePreference(
             key = "morphe_swipe_zone_width",
             tag = SeekBarPreference::class.java,
@@ -67,10 +67,10 @@ val SwipeControls = patch(
             tag = SeekBarPreference::class.java,
             selectable = true,
         ),
-        SwitchPreference("morphe_swipe_press_to_engage"),
-        SwitchPreference("morphe_swipe_haptic_feedback", summaryKey = null),
-        SwitchPreference("morphe_swipe_save_and_restore_brightness"),
-        SwitchPreference("morphe_swipe_lowest_value_enable_auto_brightness"),
+        SwitchPreference("morphe_swipe_press_to_engage", summary = true),
+        SwitchPreference("morphe_swipe_haptic_feedback"),
+        SwitchPreference("morphe_swipe_save_and_restore_brightness", summary = true),
+        SwitchPreference("morphe_swipe_lowest_value_enable_auto_brightness", summary = true),
         ListPreference("morphe_swipe_overlay_style"),
         NonInteractivePreference(
             key = "morphe_swipe_overlay_background_opacity",

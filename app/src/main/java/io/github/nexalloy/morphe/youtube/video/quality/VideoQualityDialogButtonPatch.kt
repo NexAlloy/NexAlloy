@@ -22,7 +22,7 @@ val VideoQualityDialogButtonPatch = patch(
     )
 
     addPlayerOverlayPreferences(
-        SwitchPreference("morphe_video_quality_dialog_button"),
+        SwitchPreference("morphe_video_quality_dialog_button", summary = true),
     )
     addPlayerBottomButton(VideoQualityDialogButton::initializeButton)
 

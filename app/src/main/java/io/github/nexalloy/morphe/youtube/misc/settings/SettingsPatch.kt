@@ -78,9 +78,10 @@ val SettingsHook = patch(
         selectable = true,
     )
 
-//    PreferenceScreen.GENERAL_LAYOUT.addPreferences(
-//        SwitchPreference("morphe_settings_search_history", summaryKey = null),
-//        SwitchPreference("morphe_show_menu_icons", summaryKey = null)
+//    PreferenceScreen.GENERAL.addPreferences(
+//        SwitchPreference("morphe_restore_old_settings_menus")
+//        SwitchPreference("morphe_settings_search_history"),
+//        SwitchPreference("morphe_show_menu_icons")
 //    )
 
     PreferenceScreen.MISC.addPreferences(

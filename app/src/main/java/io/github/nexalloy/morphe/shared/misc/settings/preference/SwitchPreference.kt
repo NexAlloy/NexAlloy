@@ -11,12 +11,12 @@ import android.preference.SwitchPreference
 class SwitchPreference(
     key: String? = null,
     titleKey: String = "${key}_title",
-    summaryKey: String? = "${key}_summary",
+    summary: Boolean = false,
     tag: Class<out Preference> = SwitchPreference::class.java,
     icon: String? = null,
     iconBold: String? = null,
     layout: String? = null,
-) : BasePreference(key, titleKey, summaryKey, icon, iconBold, layout, tag) {
+) : BasePreference(key, titleKey, if (summary) "${key}_summary" else null, icon, iconBold, layout, tag) {
     override fun build(ctx: Context, prefMgr: PreferenceManager): Preference {
         return SwitchPreference(ctx).apply {
             applyBaseAttrs(this)

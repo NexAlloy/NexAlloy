@@ -11,7 +11,7 @@ val HideVideoAds = patch(
     description = "Adds an option to hide ads that appear while listening to or streaming music videos, podcasts, or songs.",
 ) {
     PreferenceScreen.ADS.addPreferences(
-        SwitchPreference("morphe_music_hide_video_ads", summaryKey = null),
+        SwitchPreference("morphe_music_hide_video_ads"),
     )
 
     ::showVideoAdsParentFingerprint.hookMethod(scopedHook(::showVideoAds.member) {

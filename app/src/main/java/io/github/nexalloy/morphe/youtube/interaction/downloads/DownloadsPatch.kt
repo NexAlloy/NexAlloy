@@ -32,8 +32,8 @@ val Downloads = patch(
             key = "morphe_external_downloader_screen",
             sorting = PreferenceScreenPreference.Sorting.UNSORTED,
             preferences = setOf(
-                SwitchPreference("morphe_external_downloader"),
-                SwitchPreference("morphe_external_downloader_action_button"),
+                SwitchPreference("morphe_external_downloader", summary = true),
+                SwitchPreference("morphe_external_downloader_action_button", summary = true),
                 TextPreference(
                     "morphe_external_downloader_name",
                     tag = ExternalDownloaderPreference::class.java

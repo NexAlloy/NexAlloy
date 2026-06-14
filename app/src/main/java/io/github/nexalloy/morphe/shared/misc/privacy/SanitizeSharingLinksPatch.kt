@@ -3,15 +3,13 @@ package io.github.nexalloy.morphe.shared.misc.privacy
 import android.content.ClipData
 import android.content.Intent
 import app.morphe.extension.shared.patches.SanitizeSharingLinksPatch
-import app.morphe.extension.shared.settings.preference.NoTitlePreferenceCategory
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedHelpers
 import io.github.nexalloy.PatchExecutor
 import io.github.nexalloy.morphe.shared.misc.settings.preference.BasePreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.BasePreferenceScreen
-import io.github.nexalloy.morphe.shared.misc.settings.preference.PreferenceCategory
-import io.github.nexalloy.morphe.shared.misc.settings.preference.PreferenceScreenPreference.Sorting
 import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
+import io.github.nexalloy.morphe.shared.misc.settings.preference.noTitleUnsortedPreferenceCategory
 
 fun PatchExecutor.SanitizeSharingLinks(
     preferenceScreen: BasePreferenceScreen.Screen,
@@ -19,20 +17,15 @@ fun PatchExecutor.SanitizeSharingLinks(
     replaceLinksWithShortener: Boolean = false
 ) {
 
-    val sanitizePreference = SwitchPreference("morphe_sanitize_sharing_links")
+    val sanitizePreference = SwitchPreference("morphe_sanitize_sharing_links", summary = true)
 
     preferenceScreen.addPreferences(
         if (replaceMusicLinksWithYouTube || replaceLinksWithShortener) {
             val preferences = mutableSetOf<BasePreference>(sanitizePreference)
-            if (replaceMusicLinksWithYouTube) preferences += SwitchPreference("morphe_replace_music_with_youtube")
-            if (replaceLinksWithShortener) preferences += SwitchPreference("morphe_replace_links_with_shortener")
+            if (replaceMusicLinksWithYouTube) preferences += SwitchPreference("morphe_replace_music_with_youtube", summary = true)
+            if (replaceLinksWithShortener) preferences += SwitchPreference("morphe_replace_links_with_shortener", summary = true)
 
-            PreferenceCategory(
-                titleKey = null,
-                sorting = Sorting.UNSORTED,
-                tag = NoTitlePreferenceCategory::class.java,
-                preferences = preferences
-            )
+            noTitleUnsortedPreferenceCategory(preferences)
         } else {
             sanitizePreference
         }

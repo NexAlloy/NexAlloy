@@ -130,7 +130,7 @@ val LegacyPlayerControls = patch(
 
     if (is_20_31_or_greater) {
         PreferenceScreen.PLAYER.addPreferences(
-            SwitchPreference("morphe_restore_old_player_buttons")
+            SwitchPreference("morphe_restore_old_player_buttons", summary = true)
         )
     }
 

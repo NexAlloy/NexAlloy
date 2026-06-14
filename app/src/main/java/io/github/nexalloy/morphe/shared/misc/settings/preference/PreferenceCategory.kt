@@ -7,11 +7,12 @@ import android.preference.Preference
 import android.preference.PreferenceCategory
 import android.preference.PreferenceGroup
 import android.preference.PreferenceManager
+import app.morphe.extension.shared.settings.preference.NoTitlePreferenceCategory
 import io.github.nexalloy.morphe.shared.misc.settings.preference.PreferenceScreenPreference.Sorting
 
 open class PreferenceCategory(
     key: String? = null,
-    titleKey: String? = "${key}_title",
+    titleKey: String? = if (key == null) null else "${key}_title",
     icon: String? = null,
     iconBold: String? = null,
     layout: String? = null,
@@ -35,3 +36,18 @@ open class PreferenceCategory(
         }
     }
 }
+
+internal fun noTitleUnsortedPreferenceCategory(
+    vararg preferences: BasePreference
+) = noTitleUnsortedPreferenceCategory(preferences.toSet())
+
+internal fun noTitleUnsortedPreferenceCategory(
+    preferences: Set<BasePreference>
+) = PreferenceCategory(
+    key = null,
+    titleKey = null,
+    sorting = Sorting.UNSORTED,
+    tag = NoTitlePreferenceCategory::class.java,
+    preferences = preferences
+)
+

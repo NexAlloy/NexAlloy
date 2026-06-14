@@ -9,7 +9,7 @@ import io.github.nexalloy.injectSelfClassLoaderToHost
 import io.github.nexalloy.morphe.shared.misc.CheckRecycleBitmapMediaSession
 import io.github.nexalloy.morphe.youtube.ad.general.HideAds
 import io.github.nexalloy.morphe.youtube.ad.video.VideoAds
-import io.github.nexalloy.morphe.youtube.interaction.copyvideourl.CopyVideoUrlButton
+import io.github.nexalloy.morphe.youtube.interaction.copyvideolink.CopyVideoLinkButtonPatch
 import io.github.nexalloy.morphe.youtube.interaction.downloads.Downloads
 import io.github.nexalloy.morphe.youtube.interaction.swipecontrols.SwipeControls
 import io.github.nexalloy.morphe.youtube.layout.buttons.action.HideVideoActionButtons
@@ -54,7 +54,7 @@ val YouTubePatches = arrayOf(
     SanitizeSharingLinks,
     HideAds,
     SponsorBlock,
-    CopyVideoUrlButton,
+    CopyVideoLinkButtonPatch,
     Downloads,
     HideShortsComponents,
     DisableShortsResumingOnStartup,

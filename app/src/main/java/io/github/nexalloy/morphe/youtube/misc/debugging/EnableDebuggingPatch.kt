@@ -11,6 +11,6 @@ val EnableDebugging = patch(
 ) {
     EnableDebugging(
         preferenceScreen = PreferenceScreen.MISC,
-        additionalDebugPreferences = listOf(SwitchPreference("morphe_debug_protobuffer"))
+        additionalDebugPreferences = listOf(SwitchPreference("morphe_debug_protobuffer", summary = true))
     )
 }

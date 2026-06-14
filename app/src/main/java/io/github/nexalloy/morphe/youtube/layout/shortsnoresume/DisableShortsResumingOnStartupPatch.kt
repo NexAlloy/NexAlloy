@@ -10,7 +10,7 @@ val DisableShortsResumingOnStartup = patch(
     description = "Adds an option to disable Shorts from resuming on app startup when Shorts were last being watched.",
 ) {
     PreferenceScreen.SHORTS.addPreferences(
-        SwitchPreference("morphe_disable_shorts_resuming_on_startup", summaryKey = null),
+        SwitchPreference("morphe_disable_shorts_resuming_on_startup"),
     )
 
     // TODO UserWasInShortsEvaluateFingerprint (21.03+) — METHOD_MID

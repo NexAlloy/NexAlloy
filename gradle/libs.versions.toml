@@ -13,6 +13,9 @@ slf4j = "2.0.18"
 androidx-javascriptengine = "1.1.0-alpha01"
 protobuf = "0.10.0"
 protoc = "4.35.0"
+collections4 = "4.5.0"
+lang3 = "3.20.0"
+
 
 [libraries]
 dexkit = { group = "org.luckypray", name = "dexkit", version.ref = "dexkit" }
@@ -27,6 +30,8 @@ slf4j-simple = { group = "org.slf4j", name = "slf4j-simple", version.ref = "slf4
 protobuf-javalite = { module = "com.google.protobuf:protobuf-javalite", version.ref = "protoc" }
 protobuf-protoc = { module = "com.google.protobuf:protoc", version.ref = "protoc" }
 androidx-javascriptengine = { module = "androidx.javascriptengine:javascriptengine", version.ref = "androidx-javascriptengine" }
+collections4 = { module = "org.apache.commons:commons-collections4", version.ref = "collections4" }
+lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "lang3" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

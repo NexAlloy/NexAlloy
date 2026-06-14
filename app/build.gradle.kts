@@ -150,6 +150,8 @@ dependencies {
     compileOnly(project(":stub"))
     implementation(libs.androidx.javascriptengine)
     implementation(libs.protobuf.javalite)
+    implementation(libs.collections4)
+    implementation(libs.lang3)
 }
 
 protobuf {
@@ -276,7 +278,7 @@ abstract class CopyResourcesTask @Inject constructor() : DefaultTask() {
             "sponsorblock/drawable" to null,
             "sponsorblock/layout" to listOf("morphe_sb_skip_sponsor_button.xml"),
             "swipecontrols/drawable" to null,
-            "copyvideourlbutton/drawable" to null,
+            "copyvideolinkbutton/drawable" to null,
             "downloads/drawable" to null,
             "speedbutton/drawable" to null,
             "navigationbuttons/drawable" to null,
