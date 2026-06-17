@@ -76,6 +76,9 @@
 - Unlock subscription features
 - Disable subscription suggestions
 
+### AllTrails
+- Enable Peak membership
+
 ## Supports
 [![Discord Server](https://img.shields.io/badge/Join-Discord-5865F2.svg?logo=discord)](https://discord.gg/QWUrAA2mKq)  
 [![FAQ](https://img.shields.io/badge/Read-FAQ-orange.svg?logo=github)](https://github.com/NexAlloy/NexAlloy/wiki/Frequently-Asked-Questions)  

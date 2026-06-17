@@ -10,6 +10,13 @@
         </Preference>
         <Preference
             android:summary="GNU General Public License v3.0"
+            android:title="hoodles Morphe Patches">
+            <intent
+                android:action="android.intent.action.VIEW"
+                android:data="https://github.com/hoo-dles/morphe-patches" />
+        </Preference>
+        <Preference
+            android:summary="GNU General Public License v3.0"
             android:title="Morphe Patcher">
             <intent
                 android:action="android.intent.action.VIEW"

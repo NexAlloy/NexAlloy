@@ -15,6 +15,7 @@
         <package android:name="com.instagram.android" />
         <package android:name="com.instagram.barcelona" />
         <package android:name="com.strava" />
+        <package android:name="com.alltrails.alltrails" />
     </queries>
 
     <application
