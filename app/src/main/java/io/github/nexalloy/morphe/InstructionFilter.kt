@@ -3,6 +3,7 @@ package io.github.nexalloy.morphe
 import io.github.nexalloy.morphe.FieldAccessFilter.Companion.parseJvmFieldAccess
 import io.github.nexalloy.morphe.MethodCallFilter.Companion.parseJvmMethodCall
 import org.luckypray.dexkit.query.matchers.MethodMatcher
+import org.luckypray.dexkit.result.FieldData
 import org.luckypray.dexkit.result.InstructionData
 import org.luckypray.dexkit.result.MethodData
 import java.util.EnumSet
@@ -661,6 +662,23 @@ fun methodCall(
     location: InstructionLocation = InstructionLocation.MatchAfterAnywhere()
 ) = parseJvmMethodCall(smali, opcodes, location)
 
+/**
+ * Method call for a copy pasted SMALI style method signature. e.g.:
+ * `Landroid/view/View;->inflate(Landroid/content/Context;ILandroid/view/ViewGroup;)Landroid/view/View;`
+ *
+ * Should never be used with obfuscated method names or parameter/return types.
+ *
+ * @param smali Smali method call reference, such as
+ *              `Landroid/view/View;->inflate(Landroid/content/Context;ILandroid/view/ViewGroup;)Landroid/view/View;`.
+ * @param opcode Single opcode type to match.
+ * @param location Where this filter is allowed to match. Default is anywhere after the previous instruction.
+ */
+fun methodCall(
+    smali: String,
+    opcode: Opcode,
+    location: InstructionLocation = InstructionLocation.MatchAfterAnywhere()
+) = parseJvmMethodCall(smali, listOf(opcode), location)
+
 class FieldAccessFilter internal constructor(
     val definingClass: String? = null,
     val name: String? = null,
@@ -802,26 +820,26 @@ fun fieldAccess(
     location
 )
 
-///**
-// * Matches a field call, such as:
-// * `iget-object v0, p0, Lahhh;->g:Landroid/view/View;`
-// *
-// * @param reference Exact reference to match.
-// * @param opcode List of all possible opcodes to match. Defaults to matching all get/put opcodes.
-// *               (`Opcode.IGET`, `Opcode.SGET`, `Opcode.IPUT`, `Opcode.SPUT`, etc).
-// * @param location Where this filter is allowed to match. Default is anywhere after the previous instruction.
-// */
-//fun fieldAccess(
-//    reference: FieldReference,
-//    opcode: Opcode,
-//    location: InstructionLocation = InstructionLocation.MatchAfterAnywhere()
-//) = FieldAccessFilter(
-//    definingClass = reference.definingClass,
-//    name = reference.name,
-//    type = reference.type,
-//    opcodes = listOf(opcode),
-//    location = location
-//)
+/**
+ * Matches a field call, such as:
+ * `iget-object v0, p0, Lahhh;->g:Landroid/view/View;`
+ *
+ * @param reference Exact reference to match.
+ * @param opcode List of all possible opcodes to match. Defaults to matching all get/put opcodes.
+ *               (`Opcode.IGET`, `Opcode.SGET`, `Opcode.IPUT`, `Opcode.SPUT`, etc).
+ * @param location Where this filter is allowed to match. Default is anywhere after the previous instruction.
+ */
+fun fieldAccess(
+    reference: FieldData,
+    opcode: Opcode,
+    location: InstructionLocation = InstructionLocation.MatchAfterAnywhere()
+) = FieldAccessFilter(
+    definingClass = reference.declaredClass.descriptor,
+    name = reference.name,
+    type = reference.type.descriptor,
+    opcodes = listOf(opcode),
+    location = location
+)
 
 ///**
 // * Matches a field call, such as:

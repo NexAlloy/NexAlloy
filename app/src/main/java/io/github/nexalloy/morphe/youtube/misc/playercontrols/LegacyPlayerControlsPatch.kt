@@ -14,7 +14,7 @@ import io.github.nexalloy.PatchExecutor
 import io.github.nexalloy.morphe.Fingerprint
 import io.github.nexalloy.morphe.LiteralFilter
 import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
-import io.github.nexalloy.morphe.youtube.misc.litho.filter.featureFlagCheck
+import io.github.nexalloy.morphe.shared.misc.litho.filter.featureFlagCheck
 import io.github.nexalloy.morphe.youtube.misc.playservice.VersionCheck
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_20_28_or_greater
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_20_30_or_greater

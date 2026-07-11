@@ -5,7 +5,7 @@ import io.github.nexalloy.patch
 import io.github.nexalloy.morphe.shared.misc.settings.preference.BasePreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.PreferenceCategory
 import io.github.nexalloy.morphe.shared.misc.settings.preference.PreferenceScreenPreference
-import io.github.nexalloy.morphe.youtube.misc.litho.filter.featureFlagCheck
+import io.github.nexalloy.morphe.shared.misc.litho.filter.featureFlagCheck
 import io.github.nexalloy.morphe.youtube.misc.playservice.VersionCheck
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_20_40_or_greater
 import io.github.nexalloy.morphe.youtube.misc.settings.PreferenceScreen

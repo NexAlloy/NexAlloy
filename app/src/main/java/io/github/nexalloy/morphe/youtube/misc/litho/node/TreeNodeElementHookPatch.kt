@@ -1,7 +1,7 @@
 package io.github.nexalloy.morphe.youtube.misc.litho.node
 
 import io.github.nexalloy.morphe.youtube.misc.litho.filter.LithoFilter
-import io.github.nexalloy.morphe.youtube.misc.litho.filter.identifierFieldData
+import io.github.nexalloy.morphe.shared.misc.litho.filter.identifierFieldData
 import io.github.nexalloy.patch
 
 /**

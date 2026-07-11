@@ -8,9 +8,9 @@ import app.morphe.extension.youtube.patches.playback.quality.AdvancedVideoQualit
 import io.github.nexalloy.findFirstFieldByExactType
 import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
 import io.github.nexalloy.morphe.youtube.misc.litho.filter.LithoFilter
-import io.github.nexalloy.morphe.youtube.misc.litho.filter.addLithoFilter
-import io.github.nexalloy.morphe.youtube.misc.recyclerviewtree.hook.addRecyclerViewTreeHook
-import io.github.nexalloy.morphe.youtube.misc.recyclerviewtree.hook.recyclerViewTreeHook
+import io.github.nexalloy.morphe.shared.misc.litho.filter.addLithoFilter
+import io.github.nexalloy.morphe.youtube.misc.recyclerviewtree.addRecyclerViewTreeHook
+import io.github.nexalloy.morphe.youtube.misc.recyclerviewtree.recyclerViewTreeHook
 import io.github.nexalloy.patch
 import io.github.nexalloy.scopedHook
 import org.luckypray.dexkit.wrap.DexMethod
@@ -23,7 +23,7 @@ val AdvancedVideoQualityMenu = patch {
     )
 
     settingsMenuVideoQualityGroup.add(
-        SwitchPreference("morphe_advanced_video_quality_menu")
+        SwitchPreference("morphe_advanced_video_quality_menu", summary = true)
     )
 
     // region Patch for the old type of the video quality menu.

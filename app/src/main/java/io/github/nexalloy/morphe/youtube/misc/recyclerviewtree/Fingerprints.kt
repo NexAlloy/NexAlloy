@@ -1,4 +1,4 @@
-package io.github.nexalloy.morphe.youtube.misc.recyclerviewtree.hook
+package io.github.nexalloy.morphe.youtube.misc.recyclerviewtree
 
 import io.github.nexalloy.morphe.AccessFlags
 import io.github.nexalloy.morphe.Opcode

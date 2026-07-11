@@ -13,6 +13,8 @@ import app.morphe.extension.youtube.patches.components.DescriptionComponentsFilt
 import app.morphe.extension.youtube.patches.components.HorizontalShelvesFilter
 import app.morphe.extension.youtube.patches.components.KeywordContentFilter
 import app.morphe.extension.youtube.patches.components.LayoutComponentsFilter
+import app.morphe.extension.youtube.patches.spans.SanitizeVideoSubtitleFilter
+import app.morphe.extension.youtube.patches.spans.SearchLinksFilter
 import app.morphe.extension.youtube.settings.preference.HTMLPreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.InputType
 import io.github.nexalloy.morphe.shared.misc.settings.preference.ListPreference
@@ -24,9 +26,9 @@ import io.github.nexalloy.morphe.shared.misc.settings.preference.TextPreference
 import io.github.nexalloy.morphe.youtube.layout.buttons.navigation.NavigationBar
 import io.github.nexalloy.morphe.youtube.misc.engagement.EngagementPanelHook
 import io.github.nexalloy.morphe.youtube.misc.litho.filter.LithoFilter
-import io.github.nexalloy.morphe.youtube.misc.litho.filter.addLithoFilter
-import io.github.nexalloy.morphe.youtube.misc.litho.filter.emptyComponentClass
-import io.github.nexalloy.morphe.youtube.misc.litho.filter.featureFlagCheck
+import io.github.nexalloy.morphe.shared.misc.litho.filter.addLithoFilter
+import io.github.nexalloy.morphe.shared.misc.litho.filter.emptyComponentClass
+import io.github.nexalloy.morphe.shared.misc.litho.filter.featureFlagCheck
 import io.github.nexalloy.morphe.youtube.misc.litho.node.TreeNodeElementHook
 import io.github.nexalloy.morphe.youtube.misc.litho.node.hookTreeNodeResult
 import io.github.nexalloy.morphe.youtube.misc.litho.observer.LayoutReloadObserver
@@ -91,7 +93,7 @@ val HideLayoutComponents = patch(
                 SwitchPreference("morphe_hide_quizzes_section"),
                 SwitchPreference("morphe_hide_subscribe_button"),
                 SwitchPreference("morphe_hide_transcript_section"),
-                SwitchPreference("morphe_hide_video_details_section"),
+                SwitchPreference("morphe_hide_video_details_section")
             ),
         ),
         PreferenceScreenPreference(
@@ -117,13 +119,14 @@ val HideLayoutComponents = patch(
                 SwitchPreference("morphe_hide_comments_community_guidelines"),
                 SwitchPreference("morphe_hide_comments_create_a_short_button"),
                 SwitchPreference("morphe_hide_comments_emoji_and_timestamp_buttons"),
+                SwitchPreference("morphe_hide_comments_filter_bar_options", summary = true),
                 SwitchPreference("morphe_hide_comments_info_button"),
                 SwitchPreference("morphe_hide_comments_live_chat_donators_bar"),
                 SwitchPreference("morphe_hide_comments_preview_comment", summary = true),
                 SwitchPreference("morphe_hide_comments_thanks_button"),
-                SwitchPreference("morphe_sanitize_comments_category_bar", summary = true),
+//                SwitchPreference("morphe_sanitize_comments_highlighted_search_links", summary = true)
             ),
-            sorting = Sorting.UNSORTED,
+            sorting = Sorting.UNSORTED
         ),
         SwitchPreference("morphe_hide_channel_bar"),
         SwitchPreference("morphe_hide_channel_watermark"),
@@ -138,6 +141,7 @@ val HideLayoutComponents = patch(
         SwitchPreference("morphe_hide_sync_button"),
         SwitchPreference("morphe_hide_timed_reactions", summary = true),
         SwitchPreference("morphe_hide_video_title", summary = true),
+//        SwitchPreference("morphe_sanitize_video_subtitle", summary = true)
     )
 
     PreferenceScreen.FEED.addPreferences(
@@ -148,6 +152,7 @@ val HideLayoutComponents = patch(
                 SwitchPreference("morphe_hide_keyword_content_home"),
                 SwitchPreference("morphe_hide_keyword_content_subscriptions"),
                 SwitchPreference("morphe_hide_keyword_content_search"),
+                SwitchPreference("morphe_hide_keyword_content_comments"),
                 TextPreference("morphe_hide_keyword_content_phrases", inputType = InputType.TEXT_MULTI_LINE),
                 NonInteractivePreference(
                     key = "morphe_hide_keyword_content_about",
@@ -156,16 +161,17 @@ val HideLayoutComponents = patch(
                 NonInteractivePreference(
                     key = "morphe_hide_keyword_content_about_whole_words",
                     tag = HTMLPreference::class.java,
-                ),
-            ),
+                )
+            )
         ),
         PreferenceScreenPreference(
             key = "morphe_hide_filter_bar_screen",
             preferences = setOf(
-                SwitchPreference("morphe_hide_filter_bar_feed_in_feed"),
-                SwitchPreference("morphe_hide_filter_bar_feed_in_related_videos"),
-                SwitchPreference("morphe_hide_filter_bar_feed_in_search"),
-                SwitchPreference("morphe_hide_filter_bar_feed_in_history"),
+                SwitchPreference("morphe_hide_filter_bar_in_comments"),
+                SwitchPreference("morphe_hide_filter_bar_in_feed"),
+                SwitchPreference("morphe_hide_filter_bar_in_related_videos"),
+                SwitchPreference("morphe_hide_filter_bar_in_search"),
+                SwitchPreference("morphe_hide_filter_bar_in_history")
             ),
         ),
         PreferenceScreenPreference(
@@ -184,7 +190,7 @@ val HideLayoutComponents = patch(
                 SwitchPreference("morphe_hide_members_shelf", summary = true),
                 SwitchPreference("morphe_hide_posts_shelf"),
                 SwitchPreference("morphe_hide_store_button"),
-                SwitchPreference("morphe_hide_subscribe_button_in_channel_page"),
+//                SwitchPreference("morphe_hide_subscribe_button_in_channel_page")
             ),
         ),
         SwitchPreference("morphe_hide_album_cards", summary = true),
@@ -269,8 +275,11 @@ val HideLayoutComponents = patch(
     addLithoFilter(CommentsFilter())
     addLithoFilter(KeywordContentFilter())
     addLithoFilter(CustomFilter())
+//    TODO InclusiveSpanPatch TextComponentPatch
+//    addSpanFilter(SanitizeVideoSubtitleFilter())
+//    addSpanFilter(SearchLinksFilter())
     hookTreeNodeResult { identifier, list ->
-        CommentsFilter.sanitizeCommentsCategoryBar(identifier, list)
+        CommentsFilter.hideCommentsFilterBarOptions(identifier, list)
     }
 
     // region hide mix playlists
@@ -343,6 +352,8 @@ val HideLayoutComponents = patch(
     // endregion
 
     // TODO hide you may like section — SearchSuggestionEndpoint/SearchBoxTypingString METHOD_MID (complex helper)
+
+    // TODO PanelSubheaderFingerprint
 
     // region TODO hide flyout menu
 /*

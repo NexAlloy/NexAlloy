@@ -1,4 +1,4 @@
-package io.github.nexalloy.morphe.youtube.ad.general
+package io.github.nexalloy.morphe.youtube.ad
 
 import io.github.nexalloy.morphe.AccessFlags
 import io.github.nexalloy.morphe.Fingerprint
@@ -74,3 +74,18 @@ val PlayerOverlayEventType = findClassDirect {
 val PlayerOverlayIdField = findFieldDirect {
     PlayerOverlayTimelyShelfFingerprint.instructionMatches[1].instruction.fieldRef!!
 }
+
+internal object LoadVideoAdsFingerprint : Fingerprint(
+    strings = listOf(
+        "TriggerBundle doesn't have the required metadata specified by the trigger ",
+        "Ping migration no associated ping bindings for activated trigger: ",
+    )
+)
+
+internal object PlayerBytesAdLayoutFingerprint : Fingerprint(
+    returnType = "V",
+    parameters = listOf("L"),
+    strings = listOf(
+        "Bootstrapped layout construction resulted in non PlayerBytesLayout. PlayerAds count: ",
+    )
+)

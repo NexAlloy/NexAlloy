@@ -1,4 +1,4 @@
-package io.github.nexalloy.morphe.youtube.video.audio
+package io.github.nexalloy.morphe.shared.misc.audio.tracks
 
 import io.github.nexalloy.morphe.AccessFlags
 import io.github.nexalloy.morphe.findClassDirect

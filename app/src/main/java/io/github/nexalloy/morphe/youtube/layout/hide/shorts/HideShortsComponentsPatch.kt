@@ -8,7 +8,7 @@ import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreferenc
 import io.github.nexalloy.morphe.youtube.layout.buttons.navigation.NavigationBar
 import io.github.nexalloy.morphe.youtube.misc.engagement.EngagementPanelHook
 import io.github.nexalloy.morphe.youtube.misc.litho.filter.LithoFilter
-import io.github.nexalloy.morphe.youtube.misc.litho.filter.addLithoFilter
+import io.github.nexalloy.morphe.shared.misc.litho.filter.addLithoFilter
 import io.github.nexalloy.morphe.youtube.misc.litho.observer.LayoutReloadObserver
 import io.github.nexalloy.morphe.youtube.misc.settings.PreferenceScreen
 import io.github.nexalloy.patch
@@ -48,7 +48,6 @@ val HideShortsComponents = patch(
                 // Like fountain may no longer be used by YT anymore.
                 //SwitchPreference("morphe_hide_shorts_like_fountain"),
                 SwitchPreference("morphe_hide_shorts_like_button"),
-                SwitchPreference("morphe_hide_shorts_dislike_button"),
                 SwitchPreference("morphe_hide_shorts_comments_button"),
                 SwitchPreference("morphe_hide_shorts_share_button"),
                 SwitchPreference("morphe_hide_shorts_remix_button"),

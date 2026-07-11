@@ -9,6 +9,7 @@ import de.robv.android.xposed.XC_MethodReplacement
 import de.robv.android.xposed.XposedBridge
 import io.github.nexalloy.R
 import io.github.nexalloy.hookMethod
+import io.github.nexalloy.morphe.shared.misc.initialization.initializationPatch
 import io.github.nexalloy.morphe.shared.misc.settings.preference.BasePreferenceScreen
 import io.github.nexalloy.morphe.shared.misc.settings.preference.InputType
 import io.github.nexalloy.morphe.shared.misc.settings.preference.NonInteractivePreference
@@ -21,10 +22,12 @@ import io.github.nexalloy.patch
 
 @Suppress("UNREACHABLE_CODE")
 val SettingsHook = patch(
-    name = "<SettingsHook>",
-    description = "Adds settings for ReVanced to YouTube.",
+    name = "<SettingsHook>"
 ) {
-    dependsOn(PlayerOverlayButtonsSettings)
+    dependsOn(
+        PlayerOverlayButtonsSettings,
+        initializationPatch()
+    )
 
     ::PreferenceFragmentCompat_addPreferencesFromResource.hookMethod {
         val settings_fragment = ResourceUtils.getXmlIdentifier("settings_fragment")
@@ -68,6 +71,8 @@ val SettingsHook = patch(
             YouTubeActivityHook.updateLightDarkModeStatus(param.result as Enum<*>)
         }
     }
+
+    // Add an "About" preference to the top.
     preferences += NonInteractivePreference(
         key = "morphe_settings_screen_00_about",
         icon = "@drawable/morphe_settings_screen_00_about",

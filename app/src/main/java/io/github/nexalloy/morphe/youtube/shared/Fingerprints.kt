@@ -72,6 +72,13 @@ val mainActivityOnCreateFingerprint = fingerprint {
     classMatcher { className(".MainActivity", StringMatchType.EndsWith) }
 }
 
+internal object YouTubeActivityOnCreateFingerprint : Fingerprint(
+    definingClass = YOUTUBE_MAIN_ACTIVITY_CLASS_TYPE,
+    name = "onCreate",
+    returnType = "V",
+    parameters = listOf("Landroid/os/Bundle;"),
+)
+
 val seekbarFingerprint = fingerprint {
     returns("V")
     strings("timed_markers_width")

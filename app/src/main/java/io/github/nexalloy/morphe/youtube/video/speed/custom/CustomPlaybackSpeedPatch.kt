@@ -9,10 +9,10 @@ import io.github.nexalloy.morphe.shared.misc.settings.preference.InputType
 import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.TextPreference
 import io.github.nexalloy.morphe.youtube.misc.litho.filter.LithoFilter
-import io.github.nexalloy.morphe.youtube.misc.litho.filter.addLithoFilter
+import io.github.nexalloy.morphe.shared.misc.litho.filter.addLithoFilter
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_20_34_or_greater
-import io.github.nexalloy.morphe.youtube.misc.recyclerviewtree.hook.addRecyclerViewTreeHook
-import io.github.nexalloy.morphe.youtube.misc.recyclerviewtree.hook.recyclerViewTreeHook
+import io.github.nexalloy.morphe.youtube.misc.recyclerviewtree.addRecyclerViewTreeHook
+import io.github.nexalloy.morphe.youtube.misc.recyclerviewtree.recyclerViewTreeHook
 import io.github.nexalloy.morphe.youtube.video.information.doOverridePlaybackSpeed
 import io.github.nexalloy.morphe.youtube.video.speed.settingsMenuVideoSpeedGroup
 import io.github.nexalloy.patch

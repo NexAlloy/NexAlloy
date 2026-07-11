@@ -1,8 +1,7 @@
 package io.github.nexalloy.morphe.music
 
 import io.github.nexalloy.ExtensionResourceHook
-import io.github.nexalloy.morphe.music.ad.general.HideAds
-import io.github.nexalloy.morphe.music.ad.video.HideVideoAds
+import io.github.nexalloy.morphe.music.ad.HideAds
 import io.github.nexalloy.morphe.music.audio.exclusiveaudio.EnableExclusiveAudioPlayback
 import io.github.nexalloy.morphe.music.layout.upgradebutton.HideUpgradeButton
 import io.github.nexalloy.morphe.music.misc.backgroundplayback.BackgroundPlayback
@@ -13,7 +12,6 @@ import io.github.nexalloy.morphe.shared.misc.CheckRecycleBitmapMediaSession
 
 val YTMusicPatches = arrayOf(
     ExtensionResourceHook,
-    HideVideoAds,
     BackgroundPlayback,
     HideUpgradeButton,
     HideAds,

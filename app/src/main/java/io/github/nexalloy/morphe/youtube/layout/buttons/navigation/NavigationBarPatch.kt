@@ -49,9 +49,9 @@ val NavigationBar = patch(
 
     navPreferences += SwitchPreference("morphe_navigation_bar_animations", summary = true)
 
-    if (is_20_31_or_greater) {
-        navPreferences += SwitchPreference("morphe_disable_auto_hide_navigation_bar", summary = true)
-    }
+//    if (is_20_31_or_greater) {
+//        navPreferences += SwitchPreference("morphe_disable_auto_hide_navigation_bar", summary = true)
+//    }
 
     PreferenceScreen.GENERAL.addPreferences(
         PreferenceScreenPreference(
@@ -72,8 +72,6 @@ val NavigationBar = patch(
     })
 
     // Hide navigation button labels.
-    // Morphe: METHOD_MID in CreatePivotBarFingerprint (instruction index manipulation).
-    // Alternative: scopedHook on TextView.setText.
     CreatePivotBarFingerprint.hookMethod(scopedHook(DexMethod("Landroid/widget/TextView;->setText(Ljava/lang/CharSequence;)V").toMethod()) {
         before { param ->
             NavigationBarPatch.hideNavigationButtonLabels(param.thisObject as TextView)

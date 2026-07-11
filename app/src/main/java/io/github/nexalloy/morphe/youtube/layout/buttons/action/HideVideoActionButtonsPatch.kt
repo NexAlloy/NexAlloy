@@ -8,7 +8,7 @@ import io.github.nexalloy.morphe.shared.misc.settings.preference.PreferenceCateg
 import io.github.nexalloy.morphe.shared.misc.settings.preference.PreferenceScreenPreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
 import io.github.nexalloy.morphe.youtube.misc.litho.filter.LithoFilter
-import io.github.nexalloy.morphe.youtube.misc.litho.filter.addLithoFilter
+import io.github.nexalloy.morphe.shared.misc.litho.filter.addLithoFilter
 import io.github.nexalloy.morphe.youtube.misc.litho.node.TreeNodeElementHook
 import io.github.nexalloy.morphe.youtube.misc.litho.node.hookTreeNodeResult
 import io.github.nexalloy.morphe.youtube.misc.settings.PreferenceScreen
@@ -38,9 +38,11 @@ val HideVideoActionButtons = patch(
                         SwitchPreference("morphe_hide_ask_button"),
                         SwitchPreference("morphe_hide_clip_button", summary = true),
                         SwitchPreference("morphe_hide_comments_button"),
+                        SwitchPreference("morphe_hide_connect_button"),
                         SwitchPreference("morphe_hide_download_button"),
                         SwitchPreference("morphe_hide_hype_button"),
                         SwitchPreference("morphe_hide_like_dislike_button"),
+                        SwitchPreference("morphe_hide_more_button"),
                         SwitchPreference("morphe_hide_promote_button"),
                         SwitchPreference("morphe_hide_remix_button"),
                         SwitchPreference("morphe_hide_report_button"),

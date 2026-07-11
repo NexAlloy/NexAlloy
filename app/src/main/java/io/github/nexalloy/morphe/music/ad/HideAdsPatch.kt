@@ -1,4 +1,4 @@
-package io.github.nexalloy.morphe.music.ad.general
+package io.github.nexalloy.morphe.music.ad
 
 import android.view.View
 import app.morphe.extension.music.patches.HideAdsPatch
@@ -11,7 +11,7 @@ import io.github.nexalloy.patch
 
 val HideAds = patch(
     name = "Hide ads",
-    description = "Adds options to hide ads such as the fullscreen Premium popup and \"Get Music Premium\" label.",
+    description = "Adds options to hide fullscreen ads, Premium promotions and video ads."
 ) {
     dependsOn(
         HideFullscreenAds(PreferenceScreen.ADS),
@@ -19,6 +19,7 @@ val HideAds = patch(
 
     PreferenceScreen.ADS.addPreferences(
         SwitchPreference("morphe_music_hide_get_premium_label"),
+        SwitchPreference("morphe_music_hide_video_ads"),
     )
 
     // Hide 'Get Music Premium' label
@@ -40,6 +41,12 @@ val HideAds = patch(
     ::membershipSettingsFingerprint.hookMethod {
         before {
             if (HideAdsPatch.hideGetPremiumLabel()) it.result = null
+        }
+    }
+
+    ::showVideoAds.hookMethod {
+        before { param ->
+            param.args[0] = HideAdsPatch.hideVideoAds(param.args[0] as Boolean)
         }
     }
 }

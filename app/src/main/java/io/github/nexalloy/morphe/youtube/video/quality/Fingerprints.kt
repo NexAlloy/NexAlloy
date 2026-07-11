@@ -4,6 +4,10 @@ import io.github.nexalloy.morphe.AccessFlags
 import io.github.nexalloy.morphe.Fingerprint
 import io.github.nexalloy.morphe.Opcode
 import io.github.nexalloy.morphe.accessFlags
+import io.github.nexalloy.morphe.fieldAccess
+import io.github.nexalloy.morphe.findFieldDirect
+import io.github.nexalloy.morphe.findFieldFromToString
+import io.github.nexalloy.morphe.findMethodDirect
 import io.github.nexalloy.morphe.findMethodListDirect
 import io.github.nexalloy.morphe.fingerprint
 import io.github.nexalloy.morphe.literal
@@ -11,11 +15,41 @@ import io.github.nexalloy.morphe.opcodes
 import io.github.nexalloy.morphe.parameters
 import io.github.nexalloy.morphe.resourceMappings
 import io.github.nexalloy.morphe.returns
+import io.github.nexalloy.morphe.string
 
 internal object NewAdvancedQualityMenuStyleFlyout : Fingerprint(
     accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
     filters = listOf(literal(45712556))
 )
+
+internal const val FIXED_RESOLUTION_STRING = ", initialPlaybackVideoQualityFixedResolution="
+
+internal object PlaybackStartParametersToStringFingerprint : Fingerprint(
+    name = "toString",
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "Ljava/lang/String;",
+    parameters = listOf(),
+    filters = listOf(
+        string(FIXED_RESOLUTION_STRING)
+    )
+)
+
+val InitialResolutionField = findFieldDirect {
+    PlaybackStartParametersToStringFingerprint().findFieldFromToString(FIXED_RESOLUTION_STRING)
+}
+
+val PlaybackStartParametersInit = findMethodDirect {
+    Fingerprint(
+        classFingerprint = PlaybackStartParametersToStringFingerprint,
+        name = "<init>",
+        filters = listOf(
+            fieldAccess(
+                opcode = Opcode.IPUT_OBJECT,
+                reference = InitialResolutionField()
+            )
+        )
+    )()
+}
 
 val videoQualityItemOnClickParentFingerprint = fingerprint {
     returns("V")

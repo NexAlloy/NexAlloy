@@ -1,4 +1,4 @@
-package io.github.nexalloy.morphe.youtube.misc.recyclerviewtree.hook
+package io.github.nexalloy.morphe.youtube.misc.recyclerviewtree
 
 import android.support.v7.widget.RecyclerView
 import io.github.nexalloy.patch
