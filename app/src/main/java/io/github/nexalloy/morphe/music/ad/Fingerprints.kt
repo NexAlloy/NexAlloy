@@ -17,11 +17,7 @@ internal object ShowVideoAdsFingerprint : Fingerprint(
 )
 
 val showVideoAds = findMethodDirect {
-    ShowVideoAdsFingerprint().invokes.findMethod {
-        matcher {
-            paramTypes("boolean")
-        }
-    }.single()
+    ShowVideoAdsFingerprint.instructions[1].methodRef!!
 }
 
 val hideGetPremiumFingerprint = fingerprint {
