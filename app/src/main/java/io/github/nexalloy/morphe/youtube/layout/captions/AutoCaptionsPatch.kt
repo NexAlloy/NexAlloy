@@ -5,15 +5,23 @@ import io.github.nexalloy.morphe.shared.misc.settings.preference.ListPreference
 import io.github.nexalloy.morphe.youtube.insertLiteralOverride
 import io.github.nexalloy.morphe.youtube.misc.playservice.VersionCheck
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_20_26_or_greater
+import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_30_or_greater
 import io.github.nexalloy.morphe.youtube.misc.settings.PreferenceScreen
+import io.github.nexalloy.morphe.youtube.video.information.VideoInformationPatch
 import io.github.nexalloy.morphe.youtube.video.information.onCreateHook
 import io.github.nexalloy.patch
+import io.github.nexalloy.scopedHook
+
+private const val NO_VOLUME_CAPTIONS_FEATURE_FLAG = 45692436L
 
 val AutoCaptions = patch(
     name = "Auto captions",
     description = "Adds an option to disable captions from being automatically enabled.",
 ) {
-    dependsOn(VersionCheck)
+    dependsOn(
+        VersionCheck,
+        VideoInformationPatch,
+    )
 
     PreferenceScreen.PLAYER.addPreferences(
         if (is_20_26_or_greater) {
@@ -27,7 +35,13 @@ val AutoCaptions = patch(
         }
     )
 
-    // TODO disableAutoCaptions — SubtitleManagerFingerprint METHOD_MID
+    SubtitleManagerFingerprint.hookMethod(
+        scopedHook(::subtitleManagerBooleanMethod.member) {
+            after {
+                it.result = AutoCaptionsPatch.disableAutoCaptions(it.result as Boolean)
+            }
+        }
+    )
 
     onCreateHook.add { AutoCaptionsPatch.newVideoStarted(it) }
 
@@ -35,8 +49,26 @@ val AutoCaptions = patch(
         before { AutoCaptionsPatch.videoInformationLoaded() }
     }
 
-    // Disable mute auto captions feature flag.
     if (is_20_26_or_greater) {
-        insertLiteralOverride(45692436L, AutoCaptionsPatch::disableMuteAutoCaptions)
+        if (is_21_30_or_greater) {
+            val getters = ::noVolumeCaptionsFeatureFlagGetters.dexMethodList
+            require(getters.isNotEmpty()) { "No mute auto-captions feature flag getters found" }
+            getters.forEach { method ->
+                method.hookMethod {
+                    after { param ->
+                        if (param.hasThrowable()) return@after
+                        if (param.args.none { (it as? Number)?.toLong() == NO_VOLUME_CAPTIONS_FEATURE_FLAG }) {
+                            return@after
+                        }
+                        param.result = AutoCaptionsPatch.disableMuteAutoCaptions(param.result as Boolean)
+                    }
+                }
+            }
+        } else {
+            insertLiteralOverride(
+                NO_VOLUME_CAPTIONS_FEATURE_FLAG,
+                AutoCaptionsPatch::disableMuteAutoCaptions
+            )
+        }
     }
 }

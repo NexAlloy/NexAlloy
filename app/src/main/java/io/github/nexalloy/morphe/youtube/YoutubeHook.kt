@@ -42,7 +42,10 @@ val ExtensionHook = patch(name = "<ExtensionHook>") {
         before {
             val mainActivity = it.thisObject as Activity
             mainActivity.addModuleAssets()
-            Utils.setContext(mainActivity)
+            // MainHook already installs the Application as the process-wide extension context.
+            // Keep the Activity weakly referenced for UI/resource helpers without retaining its
+            // view hierarchy for the lifetime of the process.
+            Utils.setActivity(mainActivity)
         }
     }
 

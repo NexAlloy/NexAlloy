@@ -2,6 +2,7 @@
 
 package io.github.nexalloy.activity
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.ComponentName
 import android.content.Intent
@@ -43,7 +44,8 @@ class SettingsActivity : Activity(), SettingApplication.ServiceStateListener {
         setContentView(R.layout.activity_settings)
         actionBar?.setDisplayShowHomeEnabled(true)
 
-        Utils.setContext(this)
+        Utils.setContext(applicationContext)
+        Utils.setActivity(this)
         aboutPreference = MorpheAboutPreference(this).apply {
             setTitle(R.string.about_title)
         }
@@ -66,6 +68,7 @@ class SettingsActivity : Activity(), SettingApplication.ServiceStateListener {
 
     override fun onServiceStateChanged(service: XposedService?) {
         mService = service
+        invalidateOptionsMenu()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -80,13 +83,15 @@ class SettingsActivity : Activity(), SettingApplication.ServiceStateListener {
             packageManager.getComponentEnabledSetting(aliasName) == PackageManager.COMPONENT_ENABLED_STATE_DISABLED
 
         val menuDisableAutoCheck = menu.findItem(R.id.menu_disable_auto_check)
-        try {
-            val prefs = mService!!.getRemotePreferences("prefs")
-            menuDisableAutoCheck.isChecked =
-                prefs.getBoolean("disable_auto_check_update", false)
-            menuDisableAutoCheck.isVisible = true
-        } catch (_: Throwable) {
-            menuDisableAutoCheck.isVisible = false
+        val autoCheckDisabled = try {
+            mService?.getRemotePreferences("prefs")
+                ?.getBoolean("disable_auto_check_update", false)
+        } catch (_: RuntimeException) {
+            null
+        }
+        menuDisableAutoCheck.isVisible = autoCheckDisabled != null
+        if (autoCheckDisabled != null) {
+            menuDisableAutoCheck.isChecked = autoCheckDisabled
         }
         return true
     }
@@ -114,9 +119,19 @@ class SettingsActivity : Activity(), SettingApplication.ServiceStateListener {
 
             R.id.menu_disable_auto_check -> {
                 val newChecked = !item.isChecked
-                item.isChecked = newChecked
-                mService!!.getRemotePreferences("prefs")
-                    .edit().putBoolean("disable_auto_check_update", newChecked).apply()
+                val saved = try {
+                    val service = mService ?: throw IllegalStateException("Xposed service unavailable")
+                    service.getRemotePreferences("prefs")
+                        .edit().putBoolean("disable_auto_check_update", newChecked).apply()
+                    true
+                } catch (_: RuntimeException) {
+                    false
+                }
+                if (saved) {
+                    item.isChecked = newChecked
+                } else {
+                    item.isVisible = false
+                }
                 true
             }
 
@@ -124,6 +139,8 @@ class SettingsActivity : Activity(), SettingApplication.ServiceStateListener {
         }
     }
 
+    // API 33+ back gestures are routed here explicitly through OnBackInvokedDispatcher in onCreate.
+    @SuppressLint("GestureBackNavigation")
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         finishAndRemoveTask()
@@ -160,7 +177,7 @@ class SettingsActivity : Activity(), SettingApplication.ServiceStateListener {
                 rootScreen.addPreference(this)
             }
 
-            Utils.setContext(context)
+            Utils.setContext(context.applicationContext)
 
             Preference(context).apply {
                 summary =
@@ -243,23 +260,20 @@ class SettingsActivity : Activity(), SettingApplication.ServiceStateListener {
 
         override fun onServiceStateChanged(service: XposedService?) {
             mService = service
-
-            activity?.runOnUiThread {
-                if (service == null) {
-                    updateDynamicUI(false)
-                    return@runOnUiThread
-                }
-
-                val isModuleActivated: Boolean = try {
-                    service.getRemotePreferences("prefs")
-                    service.apiVersion
-                    true
-                } catch (_: Throwable) {
-                    false
-                }
-
-                updateDynamicUI(isModuleActivated)
+            if (service == null) {
+                updateDynamicUI(false)
+                return
             }
+
+            val isModuleActivated = try {
+                service.getRemotePreferences("prefs")
+                service.apiVersion
+                true
+            } catch (_: RuntimeException) {
+                false
+            }
+
+            updateDynamicUI(isModuleActivated)
         }
     }
 }

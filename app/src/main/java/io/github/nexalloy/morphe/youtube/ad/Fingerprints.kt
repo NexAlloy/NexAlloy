@@ -10,6 +10,7 @@ import io.github.nexalloy.morphe.ResourceType
 import io.github.nexalloy.morphe.fieldAccess
 import io.github.nexalloy.morphe.findClassDirect
 import io.github.nexalloy.morphe.findFieldDirect
+import io.github.nexalloy.morphe.findMethodDirect
 import io.github.nexalloy.morphe.methodCall
 import io.github.nexalloy.morphe.opcode
 import io.github.nexalloy.morphe.resourceLiteral
@@ -39,6 +40,10 @@ internal object FullScreenEngagementAdContainerFingerprint : Fingerprint(
         )
     )
 )
+
+val fullScreenEngagementAdAddMethod = findMethodDirect {
+    FullScreenEngagementAdContainerFingerprint.instructionMatches[3].instruction.methodRef!!
+}
 
 internal object GetPremiumViewFingerprint : Fingerprint(
     definingClass = "Lcom/google/android/apps/youtube/app/red/presenter/CompactYpcOfferModuleView;",
@@ -73,6 +78,24 @@ val PlayerOverlayEventType = findClassDirect {
 
 val PlayerOverlayIdField = findFieldDirect {
     PlayerOverlayTimelyShelfFingerprint.instructionMatches[1].instruction.fieldRef!!
+}
+
+internal object MiniplayerPaidPromotionLabelFingerprint : Fingerprint(
+    filters = listOf(
+        resourceLiteral(ResourceType.ID, "modern_miniplayer_subtitle_text"),
+        methodCall(
+            opcode = Opcode.INVOKE_VIRTUAL,
+            name = "findViewById",
+            parameters = listOf("I"),
+            returnType = "Landroid/view/View;",
+            location = MatchAfterImmediately(),
+        ),
+        opcode(Opcode.MOVE_RESULT_OBJECT, MatchAfterImmediately())
+    )
+)
+
+val miniplayerPaidPromotionViewMethod = findMethodDirect {
+    MiniplayerPaidPromotionLabelFingerprint.instructionMatches[1].instruction.methodRef!!
 }
 
 internal object LoadVideoAdsFingerprint : Fingerprint(

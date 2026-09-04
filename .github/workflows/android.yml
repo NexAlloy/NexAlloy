@@ -1,23 +1,73 @@
 name: Android CI
 
 on:
+  pull_request:
   push:
     branches: [ "main" ]
 
 jobs:
-  build:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
+    steps:
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      with:
+        submodules: true
+        persist-credentials: false
+
+    - name: Set up JDK
+      uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: gradle
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Test core invariants
+      run: ./gradlew testDebugUnitTest --tests 'io.github.nexalloy.morphe.CoreInvariantTest'
+
+    - name: Lint
+      run: |
+        if ! ./gradlew lintDebug; then
+          report='app/build/intermediates/lint_intermediate_text_report/debug/lintReportDebug/lint-results-debug.txt'
+          if [ -f "$report" ]; then
+            printf '\n===== Full lint report =====\n'
+            cat "$report"
+          fi
+          exit 1
+        fi
+
+    - name: Build Debug
+      run: ./gradlew assembleDebug
+
+    - name: Upload Debug Artifact
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      with:
+        name: nexalloy-ci-debug-apk
+        path: app/build/outputs/apk/debug
+
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: verify
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    concurrency:
+      group: nexalloy-autobuild-release
+      cancel-in-progress: false
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       with:
         submodules: true
+        persist-credentials: false
 
-    - name: set up JDK
-      uses: actions/setup-java@v5
+    - name: Set up JDK
+      uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
       with:
         java-version: '17'
         distribution: 'temurin'
@@ -27,27 +77,23 @@ jobs:
       run: chmod +x gradlew
 
     - name: Write key
+      env:
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
+        KEYSTORE_ALIAS_PASSWORD: ${{ secrets.KEYSTORE_ALIAS_PASSWORD }}
+        KEYSTORE: ${{ secrets.KEYSTORE }}
       run: |
-        echo KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }} > signing.properties
-        echo KEYSTORE_ALIAS=${{ secrets.KEYSTORE_ALIAS }} >> signing.properties
-        echo KEYSTORE_ALIAS_PASSWORD='${{ secrets.KEYSTORE_ALIAS_PASSWORD }}' >> signing.properties
-        echo KEYSTORE_FILE=../key.jks >> signing.properties
-        echo ${{ secrets.KEYSTORE }} | base64 --decode > key.jks
-
-    - name: Build Debug
-      run: ./gradlew assembleDebug
+        printf 'KEYSTORE_PASSWORD=%s\n' "$KEYSTORE_PASSWORD" > signing.properties
+        printf 'KEYSTORE_ALIAS=%s\n' "$KEYSTORE_ALIAS" >> signing.properties
+        printf 'KEYSTORE_ALIAS_PASSWORD=%s\n' "$KEYSTORE_ALIAS_PASSWORD" >> signing.properties
+        printf 'KEYSTORE_FILE=../key.jks\n' >> signing.properties
+        printf '%s' "$KEYSTORE" | base64 --decode > key.jks
 
     - name: Build Release
       run: ./gradlew assembleRelease
 
-    - name: Upload a Debug Artifact
-      uses: actions/upload-artifact@v7
-      with:
-        name: nexalloy-ci-debug-apk
-        path: app/build/outputs/apk/debug
-
-    - name: Upload a Release Artifact
-      uses: actions/upload-artifact@v7
+    - name: Upload Release Artifact
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
       with:
         name: nexalloy-ci-release-apk
         path: |
@@ -56,14 +102,48 @@ jobs:
 
     - name: Create AutoBuild Release
       run: |
-        LATEST_REL=$(gh release view --json tagName -q .tagName)
+        LATEST_REL=$(gh release view --json tagName -q .tagName 2>/dev/null || true)
         GIT_DESCRIBE=$(git rev-parse --short HEAD)
+        APK_NAME="NexAlloy-${GIT_DESCRIBE}.apk"
+        RELEASE_TITLE="Nightly Build ${GIT_DESCRIBE}"
+        if [ -n "$LATEST_REL" ]; then
+          RELEASE_NOTES="Nightly build from commit ${GIT_DESCRIBE}. See changes: https://github.com/${GITHUB_REPOSITORY}/compare/${LATEST_REL}...main"
+        else
+          RELEASE_NOTES="Nightly build from commit ${GIT_DESCRIBE}."
+        fi
+
         cd app/build/outputs/apk/release/
-        mv app-release.apk NexAlloy-${GIT_DESCRIBE}.apk
-        gh release delete autobuild --yes || true
-        gh release create autobuild NexAlloy-${GIT_DESCRIBE}.apk \
-          --prerelease \
-          --title "Nightly Build ${GIT_DESCRIBE}" \
-          --notes "Nightly build from commit ${GIT_DESCRIBE}. See changes: https://github.com/${{ github.repository }}/compare/${LATEST_REL}...main"
+        mv app-release.apk "$APK_NAME"
+
+        if gh release view autobuild >/dev/null 2>&1; then
+          OLD_ASSETS=$(gh release view autobuild --json assets -q '.assets[].name')
+
+          if ! grep -Fxq "$APK_NAME" <<< "$OLD_ASSETS"; then
+            gh release upload autobuild "$APK_NAME"
+          fi
+
+          if ! gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/autobuild" \
+            -f sha="$GITHUB_SHA" -F force=true >/dev/null; then
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+              -f ref='refs/tags/autobuild' -f sha="$GITHUB_SHA" >/dev/null
+          fi
+
+          gh release edit autobuild \
+            --prerelease \
+            --title "$RELEASE_TITLE" \
+            --notes "$RELEASE_NOTES"
+
+          while IFS= read -r old_asset; do
+            if [ -n "$old_asset" ] && [ "$old_asset" != "$APK_NAME" ]; then
+              gh release delete-asset autobuild "$old_asset" --yes
+            fi
+          done <<< "$OLD_ASSETS"
+        else
+          gh release create autobuild "$APK_NAME" \
+            --target "$GITHUB_SHA" \
+            --prerelease \
+            --title "$RELEASE_TITLE" \
+            --notes "$RELEASE_NOTES"
+        fi
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

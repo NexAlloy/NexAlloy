@@ -7,7 +7,6 @@ import io.github.nexalloy.morphe.InstructionLocation.MatchAfterWithin
 import io.github.nexalloy.morphe.Opcode
 import io.github.nexalloy.morphe.OpcodesFilter
 import io.github.nexalloy.morphe.fieldAccess
-import io.github.nexalloy.morphe.findClassDirect
 import io.github.nexalloy.morphe.findMethodDirect
 import io.github.nexalloy.morphe.fingerprint
 import io.github.nexalloy.morphe.methodCall
@@ -48,6 +47,7 @@ val accessibilityTextMethod = findMethodDirect {
             )
         ),
         custom = {
+            modifiers(AccessFlags.SYNTHETIC.modifier)
         }
     ).instructionMatches.first().instruction.methodRef!!
 }
@@ -100,11 +100,20 @@ object ProtobufBufferReferenceFingerprint : Fingerprint(
     )
 )
 
-val emptyComponentFingerprint = fingerprint {
-    accessFlags(AccessFlags.PRIVATE, AccessFlags.CONSTRUCTOR)
-    parameters()
-    strings("EmptyComponent")
-}
+private object EmptyComponentParentFingerprint : Fingerprint(
+    accessFlags = listOf(AccessFlags.PRIVATE, AccessFlags.CONSTRUCTOR),
+    parameters = listOf(),
+    filters = listOf(
+        string("EmptyComponent")
+    )
+)
+
+internal object EmptyComponentBuilderFingerprint : Fingerprint(
+    classFingerprint = EmptyComponentParentFingerprint,
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
+    returnType = "L",
+    parameters = listOf("L")
+)
 
 val lithoThreadExecutorFingerprint = fingerprint {
     accessFlags(AccessFlags.PUBLIC, AccessFlags.CONSTRUCTOR)
@@ -115,8 +124,4 @@ val lithoThreadExecutorFingerprint = fingerprint {
         }
     }
     literal { 1L }
-}
-
-val emptyComponentClass = findClassDirect {
-    emptyComponentFingerprint().declaredClass!!
 }

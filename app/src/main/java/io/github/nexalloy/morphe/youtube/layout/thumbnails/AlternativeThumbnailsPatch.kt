@@ -4,7 +4,6 @@ import app.morphe.extension.youtube.patches.AlternativeThumbnailsPatch.handleCro
 import app.morphe.extension.youtube.patches.AlternativeThumbnailsPatch.handleCronetSuccess
 import app.morphe.extension.youtube.patches.AlternativeThumbnailsPatch.overrideImageURL
 import app.morphe.extension.youtube.settings.preference.AlternativeThumbnailsAboutDeArrowPreference
-import io.github.nexalloy.patch
 import io.github.nexalloy.morphe.shared.misc.settings.preference.ListPreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.NonInteractivePreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
@@ -13,7 +12,9 @@ import io.github.nexalloy.morphe.youtube.misc.imageurlhook.addImageUrlErrorCallb
 import io.github.nexalloy.morphe.youtube.misc.imageurlhook.addImageUrlHook
 import io.github.nexalloy.morphe.youtube.misc.imageurlhook.addImageUrlSuccessCallbackHook
 import io.github.nexalloy.morphe.youtube.misc.imageurlhook.cronetImageUrlHookPatch
+import io.github.nexalloy.morphe.youtube.misc.navigation.NavigationBarHook
 import io.github.nexalloy.morphe.youtube.misc.settings.PreferenceScreen
+import io.github.nexalloy.patch
 
 val AlternativeThumbnailsPatch = patch(
     name = "Alternative thumbnails",
@@ -21,6 +22,7 @@ val AlternativeThumbnailsPatch = patch(
 ) {
     dependsOn(
         cronetImageUrlHookPatch,
+        NavigationBarHook,
     )
 
     val entries = "morphe_alt_thumbnail_options_entries"

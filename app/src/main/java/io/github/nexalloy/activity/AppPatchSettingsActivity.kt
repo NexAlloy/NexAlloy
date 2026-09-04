@@ -61,8 +61,6 @@ class AppPatchSettingsActivity : Activity() {
             super.onCreate(savedInstanceState)
         }
 
-        private var mService: XposedService? = null
-
         override fun onStart() {
             super.onStart()
             SettingApplication.addServiceStateListener(this, true)
@@ -73,68 +71,94 @@ class AppPatchSettingsActivity : Activity() {
             super.onStop()
         }
 
+        private fun showDisconnected() {
+            activity?.actionBar?.title = "Binder is null"
+            if (isAdded) {
+                preferenceScreen = preferenceManager.createPreferenceScreen(context)
+            }
+        }
+
         override fun onServiceStateChanged(service: XposedService?) {
-            mService = service
             if (service == null) {
-                activity.actionBar?.title = "Binder is null"
+                showDisconnected()
                 return
             }
 
-            activity.runOnUiThread {
-                // Retrieve appName from the Activity's Intent extras
-                val appName = arguments?.getString(ARGUMENT_APP_NAME)
-                val appPatchInfo = appPatchConfigurations.find { it.appName == appName }
-                if (appPatchInfo == null) throw Exception("AppPatchInfo not found, app_name: $appName")
-                val defaultPatchStates = appPatchInfo.patches.associate { it.name to it.use }
+            val host = activity ?: return
+            val appName = arguments?.getString(ARGUMENT_APP_NAME)
+            val appPatchInfo = appPatchConfigurations.find { it.appName == appName }
+            if (appPatchInfo == null) {
+                host.finish()
+                return
+            }
+            val defaultPatchStates = appPatchInfo.patches.associate { it.name to it.use }
+            val remotePrefs = try {
+                service.getRemotePreferences(appPatchInfo.packageName)
+            } catch (_: RuntimeException) {
+                showDisconnected()
+                return
+            }
 
-                val screen = preferenceManager.createPreferenceScreen(context)
+            host.actionBar?.title = appName
+            val screen = preferenceManager.createPreferenceScreen(context)
 
-                val remotePrefs = service.getRemotePreferences(appPatchInfo.packageName)
-
-                object : Preference(context) {
-                    @Deprecated("Deprecated in Java")
-                    override fun onBindView(view: View) {
-                        super.onBindView(view)
-                        view.findViewById<Button>(R.id.button_default).setOnClickListener {
-                            restoreDefaultPreferences(remotePrefs, defaultPatchStates)
-                        }
-                        view.findViewById<Button>(R.id.button_none).setOnClickListener {
-                            setAllPreferences(remotePrefs, false)
-                        }
-                        val isInstalled = runCatching {
-                            context.packageManager.getPackageInfo(appPatchInfo.packageName, 0)
-                        }.isSuccess
-
-                        view.findViewById<Button>(R.id.button_app_info).apply {
-                            if (!isInstalled) visibility = View.GONE
-                            setOnClickListener {
-                                val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
-                                    .setData(Uri.parse("package:${appPatchInfo.packageName}"))
-                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                startActivity(intent)
-                            }
+            object : Preference(context) {
+                @Deprecated("Deprecated in Java")
+                override fun onBindView(view: View) {
+                    super.onBindView(view)
+                    view.findViewById<Button>(R.id.button_default).setOnClickListener {
+                        if (!restoreDefaultPreferences(remotePrefs, defaultPatchStates)) {
+                            showDisconnected()
                         }
                     }
-                }.apply {
-                    layoutResource = R.layout.preference_header_buttons
-                    screen.addPreference(this)
-                }
+                    view.findViewById<Button>(R.id.button_none).setOnClickListener {
+                        if (!setAllPreferences(remotePrefs, false)) {
+                            showDisconnected()
+                        }
+                    }
+                    val isInstalled = runCatching {
+                        context.packageManager.getPackageInfo(appPatchInfo.packageName, 0)
+                    }.isSuccess
 
+                    view.findViewById<Button>(R.id.button_app_info).apply {
+                        if (!isInstalled) visibility = View.GONE
+                        setOnClickListener {
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                                .setData(Uri.parse("package:${appPatchInfo.packageName}"))
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            startActivity(intent)
+                        }
+                    }
+                }
+            }.apply {
+                layoutResource = R.layout.preference_header_buttons
+                screen.addPreference(this)
+            }
+
+            try {
                 for (patchInfo in appPatchInfo.patches.sortedBy { it.name }) {
                     if (patchInfo.name == "") continue
                     if (patchInfo.name.startsWith("<")) continue
                     CheckBoxPreference(context).apply {
-                        key = patchInfo.name // Pref Key
+                        key = patchInfo.name
                         title = patchInfo.name
                         summary = patchInfo.description
                         isChecked = remotePrefs.getBoolean(patchInfo.name, patchInfo.use)
 
                         setOnPreferenceChangeListener { _, newValue ->
                             val enabled = newValue as Boolean
-                            remotePrefs.edit().putBoolean(key, enabled).apply()
+                            val saved = try {
+                                remotePrefs.edit().putBoolean(key, enabled).apply()
+                                true
+                            } catch (_: RuntimeException) {
+                                false
+                            }
+                            if (!saved) {
+                                showDisconnected()
+                                return@setOnPreferenceChangeListener false
+                            }
 
-                            val vibrator =
-                                context.getSystemService(VIBRATOR_SERVICE) as Vibrator?
+                            val vibrator = context.getSystemService(VIBRATOR_SERVICE) as Vibrator?
                             if (vibrator?.hasVibrator() ?: false) {
                                 vibrator.vibrate(50)
                             }
@@ -143,36 +167,52 @@ class AppPatchSettingsActivity : Activity() {
                         screen.addPreference(this)
                     }
                 }
+            } catch (_: RuntimeException) {
+                showDisconnected()
+                return
+            }
 
-                preferenceScreen = screen
+            preferenceScreen = screen
+        }
+
+        fun setAllPreferences(prefs: SharedPreferences, enable: Boolean): Boolean {
+            if (!isAdded) return false
+            return try {
+                val editor = prefs.edit()
+                for (i in 0 until preferenceScreen.preferenceCount) {
+                    val preference = preferenceScreen.getPreference(i)
+                    if (preference is CheckBoxPreference) {
+                        preference.isChecked = enable
+                        editor.putBoolean(preference.key, enable)
+                    }
+                }
+                editor.apply()
+                true
+            } catch (_: RuntimeException) {
+                false
             }
         }
 
-        fun setAllPreferences(prefs: SharedPreferences, enable: Boolean) {
-            if (!isAdded) return
-            val editor = prefs.edit()
-            for (i in 0 until preferenceScreen.preferenceCount) {
-                val preference = preferenceScreen.getPreference(i)
-                if (preference is CheckBoxPreference) {
-                    preference.isChecked = enable
-                    editor.putBoolean(preference.key, enable)
+        fun restoreDefaultPreferences(
+            prefs: SharedPreferences,
+            defaultPatchStates: Map<String, Boolean>
+        ): Boolean {
+            if (!isAdded) return false
+            return try {
+                val editor = prefs.edit()
+                for (i in 0 until preferenceScreen.preferenceCount) {
+                    val preference = preferenceScreen.getPreference(i)
+                    if (preference is CheckBoxPreference) {
+                        preference.isChecked =
+                            defaultPatchStates[preference.key] ?: preference.isChecked
+                        editor.putBoolean(preference.key, preference.isChecked)
+                    }
                 }
+                editor.apply()
+                true
+            } catch (_: RuntimeException) {
+                false
             }
-            editor.apply()
-        }
-
-        fun restoreDefaultPreferences(prefs: SharedPreferences,defaultPatchStates: Map<String, Boolean>) {
-            if (!isAdded) return
-            val editor = prefs.edit()
-            for (i in 0 until preferenceScreen.preferenceCount) {
-                val preference = preferenceScreen.getPreference(i)
-                if (preference is CheckBoxPreference) {
-                    preference.isChecked =
-                        defaultPatchStates[preference.key] ?: preference.isChecked
-                    editor.putBoolean(preference.key, preference.isChecked)
-                }
-            }
-            editor.apply()
         }
     }
 }

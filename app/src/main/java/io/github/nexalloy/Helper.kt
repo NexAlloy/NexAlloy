@@ -16,6 +16,8 @@ import java.io.File
 import java.lang.ref.WeakReference
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Member
+import java.lang.reflect.Method
+import java.util.ArrayDeque
 import java.util.WeakHashMap
 
 typealias IScopedHookCallback = ScopedHookParam.(MethodHookParam) -> Unit
@@ -96,6 +98,31 @@ data class ScopedHookParam(
     val innerDepth: Int
 )
 
+internal class ScopedHookStateStack<T : Any> {
+    internal data class Frame<T : Any>(
+        val outerParam: T,
+        var innerDepth: Int = 0
+    )
+
+    private val frames = ThreadLocal<ArrayDeque<Frame<T>>>()
+
+    fun push(outerParam: T) {
+        val stack = frames.get() ?: ArrayDeque<Frame<T>>().also(frames::set)
+        stack.addLast(Frame(outerParam))
+    }
+
+    fun current(): Frame<T>? = frames.get()?.peekLast()
+
+    fun pop(outerParam: T): Boolean {
+        val stack = frames.get() ?: return false
+        val frame = stack.peekLast() ?: return false
+        if (frame.outerParam !== outerParam) return false
+        stack.removeLast()
+        if (stack.isEmpty()) frames.remove()
+        return true
+    }
+}
+
 fun scopedHook(vararg pairs: Pair<Member, HookDsl<IScopedHookCallback>.() -> Unit>): XC_MethodHook {
     val hook = ScopedHook()
     pairs.forEach { (member, block) ->
@@ -115,54 +142,47 @@ inline fun scopedHook(
 }
 
 class ScopedHook : XC_MethodHook() {
-    inline fun hookInnerMethod(
+    private val state = ScopedHookStateStack<MethodHookParam>()
+
+    fun hookInnerMethod(
         hookMethod: Member,
-        crossinline before: IScopedHookCallback,
-        crossinline after: IScopedHookCallback
+        before: IScopedHookCallback,
+        after: IScopedHookCallback
     ) {
         hookMethod.hookMethod {
             before {
-                val outerParam = outerParam.get() ?: return@before
-                val depth = innerDepth.get() ?: 0
-                innerDepth.set(depth + 1)
-                before(ScopedHookParam(outerParam, depth), it)
+                val frame = state.current() ?: return@before
+                val depth = frame.innerDepth
+                frame.innerDepth = depth + 1
+                before(ScopedHookParam(frame.outerParam, depth), it)
             }
 
             after {
-                val outerParam = outerParam.get() ?: return@after
-                val depth = ((innerDepth.get() ?: 0) - 1).coerceAtLeast(0)
-                innerDepth.set(depth)
-                try {
-                    after(ScopedHookParam(outerParam, depth), it)
-                } finally {
-                    if (depth == 0) innerDepth.remove()
-                }
+                val frame = state.current() ?: return@after
+                val depth = (frame.innerDepth - 1).coerceAtLeast(0)
+                frame.innerDepth = depth
+                after(ScopedHookParam(frame.outerParam, depth), it)
             }
-
         }
     }
 
-    val outerParam: ThreadLocal<MethodHookParam> = ThreadLocal<MethodHookParam>()
-    val innerDepth: ThreadLocal<Int> = ThreadLocal.withInitial { 0 }
-
     override fun beforeHookedMethod(param: MethodHookParam) {
-        outerParam.set(param)
-        innerDepth.set(0)
+        state.push(param)
     }
 
     override fun afterHookedMethod(param: MethodHookParam) {
-        outerParam.remove()
-        innerDepth.remove()
+        state.pop(param)
     }
 }
 
 lateinit var modulePath: String
 
 private val resourceLoader by lazy @RequiresApi(Build.VERSION_CODES.R) {
-    val fileDescriptor = ParcelFileDescriptor.open(
+    val provider = ParcelFileDescriptor.open(
         File(modulePath), ParcelFileDescriptor.MODE_READ_ONLY
-    )
-    val provider = ResourcesProvider.loadFromApk(fileDescriptor)
+    ).use { fileDescriptor ->
+        ResourcesProvider.loadFromApk(fileDescriptor)
+    }
     val loader = ResourcesLoader()
     loader.addProvider(provider)
     return@lazy loader
@@ -183,6 +203,19 @@ fun Context.addModuleAssets() {
     resources.assets.callMethod("addAssetPath", modulePath)
 }
 
+internal fun invokeFindClass(method: Method, loader: ClassLoader, name: String): Class<*> {
+    try {
+        return method(loader, name) as Class<*>
+    } catch (exception: InvocationTargetException) {
+        when (val cause = exception.cause) {
+            is ClassNotFoundException -> throw cause
+            is RuntimeException -> throw cause
+            is Error -> throw cause
+            else -> throw exception
+        }
+    }
+}
+
 // Module layouts (e.g. morphe_sb_inline_sponsor_overlay.xml) reference module classes
 // (app.morphe.*) via class attributes. When the host app inflates these layouts, its
 // ClassLoader cannot find those classes.
@@ -196,10 +229,10 @@ fun injectSelfClassLoaderToHost(self: ClassLoader, host: ClassLoader) {
         override fun findClass(name: String): Class<*> {
             try {
                 if (name.startsWith("app.morphe")) {
-                    return findClassMethod(self, name) as Class<*>
+                    return invokeFindClass(findClassMethod, self, name)
                 }
             } catch (_: ClassNotFoundException) {
-                Logger.printException { "Unexcepted ClassNotFoundException: $name" }
+                Logger.printException { "Unexpected ClassNotFoundException: $name" }
             }
 
             throw ClassNotFoundException(name)
@@ -238,8 +271,8 @@ fun injectHostClassLoaderToSelf(self: ClassLoader, host: ClassLoader) {
          */
         override fun findClass(name: String): Class<*> {
             try {
-                return findClassMethod(self, name) as Class<*>
-            } catch (_: InvocationTargetException) {
+                return invokeFindClass(findClassMethod, self, name)
+            } catch (_: ClassNotFoundException) {
             }
 
             try {

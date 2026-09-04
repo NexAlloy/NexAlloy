@@ -20,7 +20,6 @@ import app.morphe.extension.youtube.settings.preference.AiSListStatsPreferenceCa
 import app.morphe.extension.youtube.settings.preference.HTMLPreference
 import app.morphe.extension.youtube.settings.preference.KeywordContentStatsPreferenceCategory
 import io.github.nexalloy.morphe.shared.misc.litho.filter.addLithoFilter
-import io.github.nexalloy.morphe.shared.misc.litho.filter.emptyComponentClass
 import io.github.nexalloy.morphe.shared.misc.litho.node.hookTreeNodeResult
 import io.github.nexalloy.morphe.shared.misc.settings.preference.InputType
 import io.github.nexalloy.morphe.shared.misc.settings.preference.ListPreference
@@ -42,10 +41,10 @@ import io.github.nexalloy.morphe.youtube.misc.playservice.VersionCheck
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_20_26_or_greater
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_20_31_or_greater
 import io.github.nexalloy.morphe.youtube.misc.settings.PreferenceScreen
-import io.github.nexalloy.new
 import io.github.nexalloy.patch
 import io.github.nexalloy.scopedHook
 import org.luckypray.dexkit.wrap.DexMethod
+import java.lang.reflect.InvocationTargetException
 
 val HideHorizontalShelves = patch {
     dependsOn(
@@ -407,78 +406,62 @@ val HideLayoutComponents = patch(
 //    addSpanFilter(SearchLinksFilter())
     hookTreeNodeResult(CommentsFilter::hideCommentsFilterBarOptions)
 
-    // region hide mix playlists
-
-    ParseElementFromBufferFingerprint.hookMethod({
-        val emptyComponent = ::emptyComponentClass.clazz.new()
-        after {
+    ParseElementFromBufferFingerprint.hookMethod {
+        val emptyComponentMethod = ::parseElementEmptyReturnMethod.method
+        before {
             val bytes = it.args[2] as ByteArray
             if (LayoutComponentsFilter.filterMixPlaylists(bytes)) {
-                it.result = emptyComponent
+                try {
+                    it.result = emptyComponentMethod.invoke(null, it.args[0])
+                } catch (exception: InvocationTargetException) {
+                    it.throwable = exception.targetException
+                }
             }
         }
-    })
-
-    // endregion
-
-    // region hide watermark (legacy code for old versions of YouTube)
+    }
 
     ShowWatermarkFingerprint.hookMethod(scopedHook(::showWatermarkSubFingerprint.member) {
         before { it.args[1] = LayoutComponentsFilter.showWatermark() }
     })
 
-    // endregion
+    val parentContainerId = getIdIdentifier("parent_container")
+    HideSubscribedChannelsBarConstructorFingerprint.hookMethod(
+        scopedHook(::subscribedChannelsFindViewByIdMethod.member) {
+            after { param ->
+                if (param.args[0] != parentContainerId) return@after
+                (param.result as? View)?.let(LayoutComponentsFilter::hideSubscribedChannelsBar)
+            }
+        }
+    )
 
-    // TODO hide show more button
+    val wideModeWidthId = getDimenIdentifier("parent_view_width_in_wide_mode")
+    HideSubscribedChannelsBarLandscapeFingerprint.hookMethod(
+        scopedHook(::subscribedChannelsGetDimensionPixelSizeMethod.member) {
+            after { param ->
+                if (param.args[0] != wideModeWidthId) return@after
+                val value = param.result as Int
+                if (value != 0) param.result = LayoutComponentsFilter.hideSubscribedChannelsBar(value)
+            }
+        }
+    )
 
-    // hide subscribed channels bar
-    //  Tablet: id.parent_container
-    //  Phone (landscape mode): dimen.parent_view_width_in_wide_mode
+    listOf(
+        LatestVideosContentPillFingerprint to getLayoutIdentifier("content_pill"),
+        LatestVideosBarFingerprint to getLayoutIdentifier("bar")
+    ).forEach { (fingerprint, layoutId) ->
+        fingerprint.hookMethod(
+            scopedHook(::latestVideosInflateMethod.member) {
+                after { param ->
+                    if (param.args[0] != layoutId) return@after
+                    (param.result as? View)?.let(LayoutComponentsFilter::hideLatestVideosButton)
+                }
+            }
+        )
+    }
 
-    // hide album cards
-    // layout.album_card
-
-    // hide comments carousel
-    // TODO depends on elementProtoParserHookPatch
-    // hookElement("$COMMENTS_FILTER_CLASS_NAME->onCommentsLoaded([B)[B")
-
-    // hide comments info button
-    // id.information_button
-
-    // hide crowdfunding box
-    // layout.donation_companion
-
-    // hide live chat donators bar
-    // layout.live_chat_ticker_item
-
-    // TODO hide floating microphone — ShowFloatingMicrophoneButtonFingerprint METHOD_MID
-
-    // hide latest videos button
-    // layout.content_pill
-    // layout.bar
-
-    // TODO hide YouTube Doodles — YouTubeDoodlesImageViewFingerprint METHOD_MID (replace setImageDrawable)
-
-    // TODO hide view count — HideViewCountFingerprint METHOD_MID (modifyFeedSubtitleSpan)
-
-    // region hide filter bar
-    // dimen.filter_bar_height
-    // dimen.bar_container_height
-
-    // id.related_chip_cloud
-
-
-    // fix: related video overlay is broken due to patch.
     insertLiteralOverride(45614162L, LayoutComponentsFilter::hideInRelatedVideos)
     insertLiteralOverride(45661108L, LayoutComponentsFilter::hideInRelatedVideos)
 
-    // TODO PanelSubheaderFingerprint
-
-    // endregion
-
-    // TODO hide you may like section — SearchSuggestionEndpoint/SearchBoxTypingString METHOD_MID (complex helper)
-
-    // region TODO hide flyout menu
 /*
 
     BottomSheetMenuItemBuilderFingerprint.hookMethod(scopedHook(::bottomSheetMenuItemTextFingerprint.member) {
@@ -497,56 +480,7 @@ val HideLayoutComponents = patch(
     })
 */
 
-    // endregion
-
-    // TODO hide channel tab — ChannelTabBuilder/ChannelTabRenderer METHOD_MID (iterator manipulation)
-
-    // TODO hide search term thumbnails
-
-
-    // region hide live chat tooltips
-
-    // layout.tooltip_content_view
-
-    // endregion
-
-    // region hide live chat emoji button
-
-    // id.thumbnail_and_emoji_picker_container
-
-    // endregion
-
-    // region hide live chat thanks button
-
-    // id.inline_extra_buttons_container
-
-    // endregion
-
-    // TODO hide account menu
-
-    // TODO hide snackbar
-
-    // region hide sync button
-
-    // layout.sync_button
-
-    // endregion
-
-    // region hide live chat gift button
-
-    // id.jewels_button_container
-
-    // endregion
-
-    // region hide player chapters & timeline button
-
-    // id.time_bar_entry_point_tap_container
-
-    // endregion
-
-    // id hook
     DexMethod("Landroid/view/ViewGroup;->findViewById(I)Landroid/view/View;").hookMethod {
-        val parent_container = getIdIdentifier("parent_container")
         val information_button = getIdIdentifier("information_button")
         val related_chip_cloud = getIdIdentifier("related_chip_cloud")
         val thumbnail_and_emoji_picker_container = getIdIdentifier("thumbnail_and_emoji_picker_container")
@@ -557,7 +491,6 @@ val HideLayoutComponents = patch(
             val id = it.args[0] as Int
             val view = it.result as? View ?: return@after
             when (id) {
-                parent_container -> LayoutComponentsFilter.hideSubscribedChannelsBar(view)
                 information_button -> CommentsFilter.hideCommentsInfoButton(view)
                 related_chip_cloud -> LayoutComponentsFilter.hideInRelatedVideos(view)
                 thumbnail_and_emoji_picker_container -> CommentsFilter.hideLiveChatEmojiButton(view)
@@ -568,13 +501,10 @@ val HideLayoutComponents = patch(
         }
     }
 
-    // layout hook
     DexMethod("Landroid/view/LayoutInflater;->inflate(ILandroid/view/ViewGroup;)Landroid/view/View;").hookMethod {
         val live_chat_ticker_item = getLayoutIdentifier("live_chat_ticker_item")
         val donation_companion = getLayoutIdentifier("donation_companion")
         val album_card = getLayoutIdentifier("album_card")
-        val content_pill = getLayoutIdentifier("content_pill")
-        val bar = getLayoutIdentifier("bar")
         val sync_button = getLayoutIdentifier("sync_button")
         val tooltip_content_view = getLayoutIdentifier("tooltip_content_view")
         after {
@@ -583,25 +513,21 @@ val HideLayoutComponents = patch(
                 live_chat_ticker_item -> CommentsFilter.hideLiveChatDonatorsBar(view)
                 donation_companion -> LayoutComponentsFilter.hideCrowdfundingBox(view)
                 album_card -> LayoutComponentsFilter.hideAlbumCard(view)
-                content_pill, bar -> LayoutComponentsFilter.hideLatestVideosButton(view)
                 sync_button -> LayoutComponentsFilter.hideSyncButton(view)
                 tooltip_content_view -> CommentsFilter.hideLiveChatTooltip(view)
             }
         }
     }
 
-    // getDimensionPixelSize hook
     DexMethod("Landroid/content/res/Resources;->getDimensionPixelSize(I)I").hookMethod {
         val filter_bar_height = getDimenIdentifier("filter_bar_height")
         val bar_container_height = getDimenIdentifier("bar_container_height")
-        val parent_view_width_in_wide_mode = getDimenIdentifier("parent_view_width_in_wide_mode")
         after {
             val id = it.result as Int
-            if (id == 0)  return@after
+            if (id == 0) return@after
             it.result = when (it.args[0]) {
                 filter_bar_height -> LayoutComponentsFilter.hideInFeed(id)
                 bar_container_height -> LayoutComponentsFilter.hideInSearch(id)
-                parent_view_width_in_wide_mode -> LayoutComponentsFilter.hideSubscribedChannelsBar(id)
                 else -> return@after
             }
         }

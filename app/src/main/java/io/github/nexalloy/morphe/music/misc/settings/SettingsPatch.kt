@@ -68,10 +68,10 @@ val SettingsHook = patch(
     ::googleApiActivityFingerprint.hookMethod {
         before { param ->
             val activity = param.thisObject as Activity
+            superOnCreate.invokeSpecial(param.thisObject, *param.args)
             activity.setTheme(ResourceUtils.getStyleIdentifier("@style/Theme.YouTubeMusic"))
             MusicActivityHook.initialize(activity)
             activity.theme.applyStyle(R.style.ListDividerNull, true)
-            superOnCreate.invokeSpecial(param.thisObject, *param.args)
             param.result = Unit
         }
     }

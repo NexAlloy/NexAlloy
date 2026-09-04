@@ -11,7 +11,7 @@ internal object OfflineVideoEndpointFingerprint : Fingerprint(
     parameters = listOf(
         "Ljava/util/Map;",
         "L",
-        "Ljava/lang/String", // VideoId
+        "Ljava/lang/String", // Video ID
         "L",
     ),
     filters = listOf(
@@ -19,8 +19,5 @@ internal object OfflineVideoEndpointFingerprint : Fingerprint(
             string("Unsupported Offline Video Action: "), // 21.14 and lower
             string("Unsupported Offline Video Action: %s") // 21.15+
         )
-    ),
-    custom = {
-        addUsingString("Unsupported Offline Video Action: ")
-    }
+    )
 )

@@ -7,7 +7,6 @@ import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import io.github.nexalloy.bindProxy
 import io.github.nexalloy.createProxy
-import io.github.nexalloy.findFirstFieldByExactType
 import io.github.nexalloy.getStaticObjectField
 import io.github.nexalloy.hookMethod
 import io.github.nexalloy.morphe.shared.misc.litho.context.conversionContextPatch
@@ -20,6 +19,7 @@ import io.github.nexalloy.morphe.youtube.video.playerresponse.Hook
 import io.github.nexalloy.morphe.youtube.video.playerresponse.PlayerResponseMethodHook
 import io.github.nexalloy.morphe.youtube.video.playerresponse.addPlayerResponseMethodHook
 import io.github.nexalloy.morphe.youtube.video.videoid.VideoId
+import io.github.nexalloy.morphe.youtube.video.videoid.hookBackgroundPlayVideoId
 import io.github.nexalloy.morphe.youtube.video.videoid.hookPlayerResponseVideoId
 import io.github.nexalloy.morphe.youtube.video.videoid.videoIdHooks
 import io.github.nexalloy.new
@@ -94,7 +94,8 @@ class PlaybackSpeedMenu(
     }
 
     override fun patch_setSpeed(speed: Float) {
-        setPlaybackSpeedMethod(controller.get(), speed)
+        val controller = controller.get() ?: return
+        setPlaybackSpeedMethod(controller, speed)
     }
 }
 
@@ -171,6 +172,7 @@ val VideoInformationPatch = patch(
      * Inject call for video ids
      */
     videoIdHooks.add { VideoInformation.setVideoId(it) }
+    hookBackgroundPlayVideoId(VideoInformation::setVideoId)
     // rvxp: currently this is only used for ReloadVideoButtonPatch
 //    hookPlayerResponsePlaylistId(VideoInformation::setPlayerResponsePlaylistId)
     hookPlayerResponseVideoId(VideoInformation::setPlayerResponseVideoId)
@@ -224,14 +226,19 @@ val VideoInformationPatch = patch(
         }
     })
 
-    InitializePlaybackSpeedValuesFingerprint.declaredClass.constructors[0].hookMethod {
-        val playerControllerClass = ::PlayerControllerClass.clazz
+    val playbackSpeedMenuClass = InitializePlaybackSpeedValuesFingerprint.declaredClass
+    val playerControllerClass = ::PlayerControllerClass.clazz
+    val playbackSpeedMenuConstructor = playbackSpeedMenuClass.constructors.first {
+        it.parameterTypes.contains(playerControllerClass)
+    }
+    val playerControllerIndex =
+        playbackSpeedMenuConstructor.parameterTypes.indexOf(playerControllerClass)
+    playbackSpeedMenuConstructor.hookMethod {
         after {
-            val c = it.args.first { it.javaClass == playerControllerClass }
             XposedHelpers.setAdditionalInstanceField(
                 it.thisObject,
                 playerControllerFieldName,
-                c
+                it.args[playerControllerIndex]
             )
             VideoInformation.setPlaybackSpeedMenu(PlaybackSpeedMenu(it.thisObject))
         }
@@ -256,8 +263,12 @@ val VideoInformationPatch = patch(
 
     // videoQuality
     val videoQualityClass = ::VideoQualityClass.clazz
-    val qualityNameField = videoQualityClass.findFirstFieldByExactType(String::class.java)
-    val resolutionField = videoQualityClass.findFirstFieldByExactType(Int::class.java)
+    val qualityNameField = videoQualityClass.declaredFields
+        .single { it.type == String::class.java }
+        .apply { isAccessible = true }
+    val resolutionField = videoQualityClass.declaredFields
+        .single { it.type == Int::class.java }
+        .apply { isAccessible = true }
 
     val getQualityName = { quality: Any -> qualityNameField.get(quality) as String }
     val getResolution = { quality: Any -> resolutionField.get(quality) as Int }
@@ -321,8 +332,14 @@ val VideoInformationPatch = patch(
         classLoader.loadClass(::playbackParametersSetterFingerprint.dexMethod.paramTypeNames[0])
 
     val floatFields = playbackParametersClass.declaredFields.filter { it.type == Float::class.java }
-    val speedField = floatFields[0]
-    val pitchField = floatFields[1]
+    require(floatFields.size == 2) {
+        "Expected exactly two float fields in ${playbackParametersClass.name}"
+    }
+    val probeSpeed = 1.25f
+    val probePitch = 0.75f
+    val probe = playbackParametersClass.new(probeSpeed, probePitch)
+    val speedField = floatFields.single { it.getFloat(probe) == probeSpeed }
+    val pitchField = floatFields.single { it.getFloat(probe) == probePitch }
     ::playbackParametersSetterFingerprint.hookMethod {
         before {
             val newParam = playbackParametersClass.new(

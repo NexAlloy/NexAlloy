@@ -12,15 +12,26 @@ import org.luckypray.dexkit.DexKitBridge
 import java.io.File
 import java.util.EnumSet
 
-class ApkContext(apkPath: String) {
+class ApkContext(apkPath: String) : AutoCloseable {
     val dexkit: DexKitBridge
     val jadx: JadxDecompiler
     val appVersion: AppVersion
 
     init {
         dexkit = setupDexKit(apkPath)
-        jadx = setupJadx(apkPath)
-        appVersion = jadx.getAppVersion()
+        jadx = try {
+            setupJadx(apkPath)
+        } catch (e: Throwable) {
+            e.suppressCleanup { dexkit.close() }
+            throw e
+        }
+        appVersion = try {
+            jadx.getAppVersion()
+        } catch (e: Throwable) {
+            e.suppressCleanup { dexkit.close() }
+            e.suppressCleanup { jadx.close() }
+            throw e
+        }
     }
 
     companion object {
@@ -53,8 +64,13 @@ class ApkContext(apkPath: String) {
             security = JadxSecurity(JadxSecurityFlag.none())
         }
         val jadx = JadxDecompiler(jadxArgs)
-        jadx.load()
-        return jadx
+        try {
+            jadx.load()
+            return jadx
+        } catch (e: Throwable) {
+            e.suppressCleanup { jadx.close() }
+            throw e
+        }
     }
 
     private fun JadxDecompiler.getAppVersion(): AppVersion {
@@ -64,5 +80,33 @@ class ApkContext(apkPath: String) {
             JadxSecurity(JadxSecurityFlag.none())
         )
         return AppVersion(manifest.parse().versionName)
+    }
+
+    override fun close() {
+        jadxResourceReader.remove()
+        var failure: Throwable? = null
+        try {
+            dexkit.close()
+        } catch (e: Throwable) {
+            failure = e
+        }
+        try {
+            jadx.close()
+        } catch (e: Throwable) {
+            if (failure == null) {
+                failure = e
+            } else {
+                failure.addSuppressed(e)
+            }
+        }
+        failure?.let { throw it }
+    }
+}
+
+private inline fun Throwable.suppressCleanup(block: () -> Unit) {
+    try {
+        block()
+    } catch (cleanupError: Throwable) {
+        addSuppressed(cleanupError)
     }
 }

@@ -1,6 +1,8 @@
 package io.github.nexalloy.activity
 
 import android.app.Application
+import android.os.Handler
+import android.os.Looper
 import io.github.libxposed.service.XposedService
 import io.github.libxposed.service.XposedServiceHelper
 import java.util.concurrent.CopyOnWriteArraySet
@@ -12,15 +14,27 @@ class SettingApplication : Application(), XposedServiceHelper.OnServiceListener 
         @Volatile
         var mService: XposedService? = null
             private set
-        private val serviceStateListeners =
-            CopyOnWriteArraySet<ServiceStateListener>()
+
+        private val mainHandler = Handler(Looper.getMainLooper())
+        private val services = LinkedHashSet<XposedService>()
+        private val serviceStateListeners = CopyOnWriteArraySet<ServiceStateListener>()
+
+        private fun runOnMain(block: () -> Unit) {
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                block()
+            } else {
+                mainHandler.post(block)
+            }
+        }
 
         private fun dispatchServiceState(
             listener: ServiceStateListener,
             service: XposedService?
         ) {
-            if (serviceStateListeners.contains(listener)) {
-                listener.onServiceStateChanged(service)
+            runOnMain {
+                if (serviceStateListeners.contains(listener)) {
+                    listener.onServiceStateChanged(service)
+                }
             }
         }
 
@@ -37,11 +51,11 @@ class SettingApplication : Application(), XposedServiceHelper.OnServiceListener 
         fun removeServiceStateListener(listener: ServiceStateListener) {
             serviceStateListeners.remove(listener)
         }
-    }
 
-    private fun notifyServiceStateChanged(service: XposedService?) {
-        for (listener in serviceStateListeners) {
-            dispatchServiceState(listener, service)
+        private fun notifyServiceStateChanged(service: XposedService?) {
+            for (listener in serviceStateListeners) {
+                dispatchServiceState(listener, service)
+            }
         }
     }
 
@@ -55,12 +69,21 @@ class SettingApplication : Application(), XposedServiceHelper.OnServiceListener 
     }
 
     override fun onServiceBind(service: XposedService) {
-        mService = service
-        notifyServiceStateChanged(mService)
+        runOnMain {
+            services.remove(service)
+            services.add(service)
+            if (mService !== service) {
+                mService = service
+                notifyServiceStateChanged(service)
+            }
+        }
     }
 
     override fun onServiceDied(service: XposedService) {
-        mService = null
-        notifyServiceStateChanged(mService)
+        runOnMain {
+            if (!services.remove(service) || mService !== service) return@runOnMain
+            mService = services.lastOrNull()
+            notifyServiceStateChanged(mService)
+        }
     }
 }

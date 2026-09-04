@@ -2,15 +2,19 @@ package io.github.nexalloy.morphe.youtube.layout.sponsorblock
 
 import io.github.nexalloy.morphe.AccessFlags
 import io.github.nexalloy.morphe.Fingerprint
+import io.github.nexalloy.morphe.InstructionLocation.MatchAfterImmediately
 import io.github.nexalloy.morphe.InstructionLocation.MatchAfterWithin
 import io.github.nexalloy.morphe.Opcode
-import io.github.nexalloy.morphe.OpcodesFilter
-import io.github.nexalloy.morphe.fieldAccess
+import io.github.nexalloy.morphe.ResourceType
 import io.github.nexalloy.morphe.findFieldDirect
 import io.github.nexalloy.morphe.findMethodDirect
+import io.github.nexalloy.morphe.methodCall
 import io.github.nexalloy.morphe.opcode
+import io.github.nexalloy.morphe.resourceLiteral
 import io.github.nexalloy.morphe.resourceMappings
 import io.github.nexalloy.morphe.youtube.shared.seekbarFingerprint
+
+val total_time get() = resourceMappings["string", "total_time"]
 
 internal object AppendTimeFingerprint : Fingerprint(
     accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
@@ -18,35 +22,51 @@ internal object AppendTimeFingerprint : Fingerprint(
     parameters = listOf(
         "Ljava/lang/CharSequence;", "Ljava/lang/CharSequence;", "Ljava/lang/CharSequence;"
     ),
-    filters = OpcodesFilter.opcodesToFilters(
-        Opcode.INVOKE_VIRTUAL,
-        Opcode.MOVE_RESULT_OBJECT,
-        Opcode.IGET_OBJECT,
-        Opcode.IGET_OBJECT,
-        Opcode.CHECK_CAST,
-        Opcode.INVOKE_VIRTUAL,
-        Opcode.MOVE_RESULT_OBJECT,
-        Opcode.INVOKE_STATIC,
-        Opcode.MOVE_RESULT,
-    ),
+    filters = listOf(
+        resourceLiteral(
+            type = ResourceType.STRING,
+            name = "total_time"
+        ),
+        methodCall(
+            smali = "Landroid/content/res/Resources;->getString(I[Ljava/lang/Object;)Ljava/lang/String;"
+        ),
+        opcode(Opcode.MOVE_RESULT_OBJECT, MatchAfterImmediately())
+    )
 )
 
-val SponsorBarRect = findFieldDirect {
+val rectangleFieldInvalidatorFingerprint = findMethodDirect {
     val clazz = seekbarFingerprint().declaredClass!!
     clazz.findMethod {
         matcher {
-            addInvoke {
-                name = "invalidate"
-                paramTypes("android.graphics.Rect")
-            }
+            returnType = "void"
+            paramTypes()
+            addInvoke { name = "invalidate" }
         }
-    }.single().usingFields.last { it.field.typeName == "android.graphics.Rect" }.field
+    }.single()
+}
+
+val SponsorBarRect = findFieldDirect {
+    val method = rectangleFieldInvalidatorFingerprint()
+    val invalidateIndex = method.instructions.first {
+        it.methodRef?.name == "invalidate"
+    }.index
+
+    method.instructions.asReversed().firstNotNullOfOrNull { instruction ->
+        if (instruction.index >= invalidateIndex) {
+            null
+        } else {
+            instruction.fieldRef?.takeIf { it.typeName == "android.graphics.Rect" }
+        }
+    } ?: error("Could not resolve SponsorBlock seekbar rectangle field")
 }
 
 val seekbarOnDrawFingerprint = findMethodDirect {
     seekbarFingerprint().declaredClass!!.findMethod {
         matcher {
             name = "onDraw"
+            addInvoke {
+                descriptor = "Ljava/lang/Math;->round(F)I"
+            }
         }
     }.single()
 }
@@ -68,20 +88,11 @@ internal object AdProgressTextViewVisibilityFingerprint : Fingerprint(
     returnType = "V",
     parameters = listOf("Z"),
     filters = listOf(
-        fieldAccess(
-            opcode = Opcode.IGET_OBJECT,
-            type = "Ljava/lang/Object;"
-        ),
-        opcode(opcode = Opcode.CHECK_CAST, location = MatchAfterWithin(4)),
-    ),
-    custom = {
-        addInvoke {
-            descriptor =
-                "Lcom/google/android/libraries/youtube/ads/player/ui/AdProgressTextView;->setVisibility(I)V"
-        }
-    }
+        methodCall(
+            definingClass = "Lcom/google/android/libraries/youtube/ads/player/ui/AdProgressTextView;",
+            name = "setVisibility",
+            parameters = listOf("I"),
+            returnType = "V"
+        )
+    )
 )
-
-val AdProgressTextField = findFieldDirect {
-    AdProgressTextViewVisibilityFingerprint.instructionMatches[0].instruction.fieldRef!!
-}

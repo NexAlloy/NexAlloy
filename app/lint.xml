@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<lint>
+    <!--
+      The vendored Reddit extension is built as a separate module with minSdk 28 upstream.
+      NexAlloy also compiles those sources into its minSdk 27 module, so NewApi would otherwise
+      evaluate them against the wrong minimum API level. Keep the exception limited to the
+      three Reddit files which intentionally use API 28 APIs.
+    -->
+    <issue id="NewApi">
+        <ignore path="../morphe-patches/extensions/reddit/src/main/java/app/morphe/extension/reddit/patches/CustomFontPatch.java" />
+        <ignore path="../morphe-patches/extensions/reddit/src/main/java/app/morphe/extension/reddit/patches/ForceSystemFontPatch.java" />
+        <ignore path="../morphe-patches/extensions/reddit/src/main/java/app/morphe/extension/reddit/patches/SpoofSignaturePatch.java" />
+    </issue>
+</lint>

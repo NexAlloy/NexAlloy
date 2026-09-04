@@ -2,12 +2,12 @@ package io.github.nexalloy.morphe.music.ad
 
 import android.view.View
 import app.morphe.extension.music.patches.HideAdsPatch
-import app.morphe.extension.shared.Logger
 import app.morphe.extension.shared.ResourceUtils
 import io.github.nexalloy.morphe.music.misc.settings.PreferenceScreen
 import io.github.nexalloy.morphe.shared.ad.HideFullscreenAds
 import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
 import io.github.nexalloy.patch
+import io.github.nexalloy.scopedHook
 
 val HideAds = patch(
     name = "Hide ads",
@@ -19,25 +19,17 @@ val HideAds = patch(
 
     PreferenceScreen.ADS.addPreferences(
         SwitchPreference("morphe_music_hide_get_premium_label"),
-//        SwitchPreference("morphe_music_hide_music_premium_promotions"),
+        SwitchPreference("morphe_music_hide_music_premium_promotions"),
         SwitchPreference("morphe_music_hide_video_ads"),
     )
 
-    // Hide 'Get Music Premium' label
-    HideGetPremiumFingerprint.hookMethod {
-        val id = ResourceUtils.getIdIdentifier("unlimited_panel")
-        after { param ->
-            val thiz = param.thisObject
-            for (field in thiz.javaClass.fields) {
-                val view = field.get(thiz)
-                if (view !is View) continue
-                val panelView = view.findViewById<View>(id) ?: continue
-                Logger.printDebug { "hide get premium" }
-                panelView.visibility = View.GONE
-                break
+    HideGetPremiumFingerprint.hookMethod(
+        scopedHook(::hideGetPremiumSetVisibility.member) {
+            before { param ->
+                param.args[0] = View.GONE
             }
         }
-    }
+    )
 
     MembershipSettingsFingerprint.hookMethod {
         before {
@@ -51,5 +43,13 @@ val HideAds = patch(
         }
     }
 
-    // TODO Hide Music Premium promotions
+    val floatingLayoutId = ResourceUtils.getIdIdentifier("floating_layout")
+    FloatingLayoutFingerprint.hookMethod(
+        scopedHook(::floatingLayoutFindViewById.member) {
+            after { param ->
+                if (param.args[0] != floatingLayoutId) return@after
+                (param.result as? View)?.let(HideAdsPatch::hidePremiumPromotionBottomSheet)
+            }
+        }
+    )
 }

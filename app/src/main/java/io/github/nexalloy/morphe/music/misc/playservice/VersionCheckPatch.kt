@@ -1,5 +1,6 @@
 package io.github.nexalloy.morphe.music.misc.playservice
 
+import io.github.nexalloy.morphe.isVersionAtLeast
 import io.github.nexalloy.patch
 import kotlin.properties.Delegates
 
@@ -28,7 +29,7 @@ val versionCheckPatch = patch {
         .getPackageInfo(appContext.packageName, 0).versionName!!
 
     fun isEqualsOrGreaterThan(version: String): Boolean {
-        return versionName >= version
+        return isVersionAtLeast(versionName, version)
     }
 
     is_9_19_or_greater = isEqualsOrGreaterThan("9.19.00")

@@ -2,6 +2,7 @@
 
 package io.github.nexalloy.morphe.youtube.misc.playservice
 
+import io.github.nexalloy.morphe.isVersionAtLeast
 import io.github.nexalloy.patch
 import kotlin.properties.Delegates
 
@@ -100,7 +101,7 @@ val VersionCheck = patch {
     val versionName = appContext.packageManager
         .getPackageInfo(appContext.packageName, 0).versionName!!
 
-    fun isEqualsOrGreaterThan(version: String) = versionName >= version
+    fun isEqualsOrGreaterThan(version: String) = isVersionAtLeast(versionName, version)
 
     is_20_22_or_greater = isEqualsOrGreaterThan("20.22.00")
     is_20_26_or_greater = isEqualsOrGreaterThan("20.26.00")

@@ -29,7 +29,7 @@ import kotlin.random.Random
 
 data class ReleaseInfo(
     @SerializedName("tag_name") val tagName: String,
-    @SerializedName("body_html") val releaseNoteHtml: String,
+    @SerializedName("body_html") val releaseNoteHtml: String?,
     @SerializedName("html_url") val releaseUrl: String
 )
 
@@ -40,12 +40,10 @@ data class VersionInfo(val versionCode: Int, val versionName: String) {
             val versionName: String
 
             val split = tagName.split('-', limit = 2)
-            if (split.count() == 2) {
-                // VersionCode-VersionName
+            if (split.size == 2) {
                 versionCode = split[0].toIntOrNull() ?: 0
                 versionName = split[1]
             } else {
-                // X.Y.Z, Z is versionCode
                 versionCode = tagName.split('.').last().toIntOrNull() ?: 0
                 versionName = tagName
             }
@@ -58,7 +56,7 @@ const val OWNER = "NexAlloy"
 const val REPO = "NexAlloy"
 const val currentVersionCode = BuildConfig.VERSION_CODE
 
-class UpdateChecker() : CoroutineScope {
+class UpdateChecker : CoroutineScope {
     override val coroutineContext: CoroutineContext
         get() = Dispatchers.IO + CoroutineExceptionHandler { _, err ->
             Logger.printException({ "coroutineContext error" }, err)
@@ -75,7 +73,6 @@ class UpdateChecker() : CoroutineScope {
     }
 
     fun hookNewActivity() {
-
         XposedHelpers.findMethodExact(
             Instrumentation::class.java,
             "newActivity",
@@ -96,7 +93,7 @@ class UpdateChecker() : CoroutineScope {
     fun autoCheckUpdate() {
         if (Random.nextInt(0, 10) != 0) return
         Logger.printInfo { "start auto check update." }
-        runCatching { checkUpdate() }
+        checkUpdate()
     }
 
     fun checkUpdate(silent: Boolean = true) {
@@ -161,7 +158,7 @@ class UpdateChecker() : CoroutineScope {
                 val dialog = AlertDialog.Builder(requireActivity(), theme)
                     .setTitle("Found new version of NexAlloy ${latestVersionInfo.versionName}")
                     .setMessage(
-                        Html.fromHtml(latestRelease.releaseNoteHtml, Html.FROM_HTML_MODE_LEGACY)
+                        Html.fromHtml(latestRelease.releaseNoteHtml.orEmpty(), Html.FROM_HTML_MODE_LEGACY)
                     ).setPositiveButton(R.string.ok) { _, _ ->
                         openReleasePage()
                     }.setNegativeButton(requireActivity().getString(R.string.cancel), null)

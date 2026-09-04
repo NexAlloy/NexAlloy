@@ -13,12 +13,13 @@ jobs:
       contents: write
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
       with:
         submodules: true
+        persist-credentials: false
 
     - name: set up JDK
-      uses: actions/setup-java@v5
+      uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
       with:
         java-version: '17'
         distribution: 'temurin'
@@ -28,19 +29,27 @@ jobs:
       run: chmod +x gradlew
 
     - name: Write key
+      env:
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
+        KEYSTORE_ALIAS_PASSWORD: ${{ secrets.KEYSTORE_ALIAS_PASSWORD }}
+        KEYSTORE: ${{ secrets.KEYSTORE }}
       run: |
-        echo KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }} > signing.properties
-        echo KEYSTORE_ALIAS=${{ secrets.KEYSTORE_ALIAS }} >> signing.properties
-        echo KEYSTORE_ALIAS_PASSWORD='${{ secrets.KEYSTORE_ALIAS_PASSWORD }}' >> signing.properties
-        echo KEYSTORE_FILE=../key.jks >> signing.properties
-        echo ${{ secrets.KEYSTORE }} | base64 --decode > key.jks
+        printf 'KEYSTORE_PASSWORD=%s\n' "$KEYSTORE_PASSWORD" > signing.properties
+        printf 'KEYSTORE_ALIAS=%s\n' "$KEYSTORE_ALIAS" >> signing.properties
+        printf 'KEYSTORE_ALIAS_PASSWORD=%s\n' "$KEYSTORE_ALIAS_PASSWORD" >> signing.properties
+        printf 'KEYSTORE_FILE=../key.jks\n' >> signing.properties
+        printf '%s' "$KEYSTORE" | base64 --decode > key.jks
 
     - name: Build Release
       run: ./gradlew assembleRelease
 
     - run: |
         cd app/build/outputs/apk/release/
-        mv app-release.apk NexAlloy-${{ github.ref_name }}.apk
-        gh release create --prerelease ${{ github.ref_name }} NexAlloy-${{ github.ref_name }}.apk
+        SAFE_RELEASE_REF="$(printf '%s' "$RELEASE_REF" | tr '/#' '__')"
+        ASSET_NAME="NexAlloy-${SAFE_RELEASE_REF}.apk"
+        mv app-release.apk "$ASSET_NAME"
+        gh release create "$RELEASE_REF" "$ASSET_NAME" --prerelease
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        RELEASE_REF: ${{ github.ref_name }}

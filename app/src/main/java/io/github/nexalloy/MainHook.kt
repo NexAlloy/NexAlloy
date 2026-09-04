@@ -4,7 +4,6 @@ import android.app.Application
 import app.morphe.extension.shared.ResourceType
 import app.morphe.extension.shared.ResourceUtils
 import app.morphe.extension.shared.Utils
-import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedModule
@@ -65,12 +64,12 @@ class MainHook : XposedModule() {
             param.classLoader.loadClass("app.revanced.integrations.shared.utils.Utils")
         }.isSuccess
     }
-
 }
 
 context(xposed: XposedInterface)
 fun inContext(lpparam: PackageReadyParam, f: (Application) -> Unit) {
-    val appClazz = XposedHelpers.findClass(lpparam.applicationInfo.className, lpparam.classLoader)
+    val appClassName = lpparam.applicationInfo.className ?: Application::class.java.name
+    val appClazz = XposedHelpers.findClass(appClassName, lpparam.classLoader)
     appClazz.getMethod("onCreate").hookMethod {
         before {
             val app = it.thisObject as Application

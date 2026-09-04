@@ -1,7 +1,5 @@
 package io.github.nexalloy
 
-// Skip Unit Test on unused fingerprint.
-// Use with caution!!!
 @Target(AnnotationTarget.PROPERTY_GETTER, AnnotationTarget.FUNCTION, AnnotationTarget.CLASS)
 annotation class SkipTest()
 
@@ -15,18 +13,14 @@ class AppVersion(val versionString: String) : Comparable<AppVersion> {
         }
     }
 
-    private val parts: List<Int> by lazy { versionString.split('.').map { it.toInt() } }
+    private val parts: List<Long> by lazy { versionString.split('.').map { it.toLong() } }
 
-    fun getPart(index: Int): Int = parts.elementAtOrElse(index) { 0 }
+    fun getPart(index: Int): Long = parts.elementAtOrElse(index) { 0L }
 
     override fun compareTo(other: AppVersion): Int {
-        require(this.parts.size == other.parts.size) {
-            "Version parts count mismatch: ${this.versionString} (${this.parts.size} parts) vs ${other.versionString} (${other.parts.size} parts)"
-        }
-
-        val len = parts.size
+        val len = maxOf(parts.size, other.parts.size)
         for (i in 0 until len) {
-            val thisPart = this.getPart(i)
+            val thisPart = getPart(i)
             val otherPart = other.getPart(i)
             if (thisPart != otherPart) {
                 return thisPart.compareTo(otherPart)
@@ -38,7 +32,6 @@ class AppVersion(val versionString: String) : Comparable<AppVersion> {
     override fun toString(): String = versionString
 }
 
-// Skip Unit Test by version constraint
 @Target(AnnotationTarget.PROPERTY_GETTER, AnnotationTarget.FUNCTION, AnnotationTarget.CLASS)
 annotation class RequireAppVersion(
     val minVersion: String = "",
@@ -51,7 +44,7 @@ fun match(appVersion: AppVersion, minVersionStr: String, maxVersionStr: String) 
     val minVersion = minVersionStr.takeIf { it.isNotEmpty() }?.let { AppVersion(it) }
     val maxVersion = maxVersionStr.takeIf { it.isNotEmpty() }?.let { AppVersion(it) }
     when {
-        minVersion == null && maxVersion == null -> return // No version constraint
+        minVersion == null && maxVersion == null -> return
         minVersion != null && appVersion < minVersion ->
             throw VersionConstraintFailedException("Min version mismatch (current: $appVersion, required: $minVersion)")
 

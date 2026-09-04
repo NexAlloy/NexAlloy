@@ -18,16 +18,25 @@ val DisableShortsResumingOnStartup = patch(
 
     if (is_21_03_or_greater) {
         UserWasInShortsEvaluateFingerprint.hookMethod(
-            scopedHook(
-                UserWasInShortsEvaluateAnchorFingerprint.method
-            ) {
+            scopedHook(::userWasInShortsEvaluateConstructor.member) {
+                before { constructorParam ->
+                    if (innerDepth != 0) return@before
+                    constructorParam.args[1] =
+                        DisableShortsResumingOnStartupPatch.disableShortsResumingOnStartup(
+                            constructorParam.args[1] as Boolean
+                        )
+                }
+            }
+        )
+    } else {
+        UserWasInShortsListenerFingerprint.hookMethod(
+            scopedHook(::userWasInShortsBooleanValueMethod.member) {
                 after {
                     it.result =
                         DisableShortsResumingOnStartupPatch.disableShortsResumingOnStartup(it.result as Boolean)
                 }
-            })
-    } else {
-        // TODO
+            }
+        )
     }
 
     insertLiteralOverride(

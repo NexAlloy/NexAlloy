@@ -4,6 +4,10 @@ import io.github.nexalloy.morphe.Fingerprint
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.TestFactory
+import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.params.AfterParameterizedClassInvocation
+import org.junit.jupiter.params.BeforeParameterizedClassInvocation
+import org.junit.jupiter.params.Parameter
 import org.junit.jupiter.params.ParameterizedClass
 import org.junit.jupiter.params.provider.ArgumentsSource
 import org.luckypray.dexkit.DexKitBridge
@@ -18,10 +22,26 @@ import kotlin.system.measureTimeMillis
 
 @ParameterizedClass
 @ArgumentsSource(FilePathArgumentsProvider::class)
-class FingerprintsKtTest(val apkPath: Path) {
-    val context = ApkContext(apkPath.toString())
-    val dexkit: DexKitBridge = context.dexkit
-    val appVersion: AppVersion = context.appVersion
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+class FingerprintsKtTest {
+    @Parameter
+    lateinit var apkPath: Path
+
+    private lateinit var context: ApkContext
+    private lateinit var dexkit: DexKitBridge
+    private lateinit var appVersion: AppVersion
+
+    @BeforeParameterizedClassInvocation
+    fun setUp(apkPath: Path) {
+        context = ApkContext(apkPath.toString())
+        dexkit = context.dexkit
+        appVersion = context.appVersion
+    }
+
+    @AfterParameterizedClassInvocation(injectArguments = false)
+    fun tearDown() {
+        context.close()
+    }
 
     // region Test runner
 
@@ -218,14 +238,14 @@ class FingerprintsKtTest(val apkPath: Path) {
             else -> return@sequence
         }
 
-        val packageNames =
-            Files.walk(Path("src/main/java/io/github/nexalloy/morphe/$app"))
-                .filter { Files.isRegularFile(it) && it.fileName.toString() == "Fingerprints.kt" }
+        val packageNames = Files.walk(Path("src/main/java/io/github/nexalloy/morphe/$app")).use { paths ->
+            paths.filter { Files.isRegularFile(it) && it.fileName.toString() == "Fingerprints.kt" }
                 .map {
                     // drop src/main/java, drop filename → package name
                     it.parent.invariantSeparatorsPathString.split("/").drop(3)
                         .joinToString(".")
                 }.toList().toMutableList()
+        }
 
         // Add shared fingerprints packages.
         SharedFingerprintsProvider.getSharedFingerprints(app).forEach {

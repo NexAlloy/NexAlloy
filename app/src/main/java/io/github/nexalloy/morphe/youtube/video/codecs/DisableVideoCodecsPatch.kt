@@ -5,6 +5,7 @@ import app.morphe.extension.youtube.patches.DisableVideoCodecsPatch
 import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
 import io.github.nexalloy.morphe.youtube.misc.settings.PreferenceScreen
 import io.github.nexalloy.patch
+import io.github.nexalloy.scopedHook
 import org.luckypray.dexkit.wrap.DexMethod
 
 val DisableVideoCodecs = patch(
@@ -13,27 +14,35 @@ val DisableVideoCodecs = patch(
 ) {
     PreferenceScreen.VIDEO.addPreferences(
         SwitchPreference("morphe_disable_hdr_video"),
+        SwitchPreference("morphe_force_hdr_video", summary = true),
         SwitchPreference(
             key = "morphe_force_avc_codec",
             tag = app.morphe.extension.youtube.settings.preference.ForceAVCSwitchPreference::class.java
         )
     )
 
-    DexMethod($$"Landroid/view/Display$HdrCapabilities;->getSupportedHdrTypes()[I").hookMethod {
-        val guard = ThreadLocal<Boolean>()
-        after {
-            if (guard.get() == true) {
-                return@after
-            }
+    val supportedHdrTypesMember =
+        DexMethod($$"Landroid/view/Display$HdrCapabilities;->getSupportedHdrTypes()[I").toMember()
+    val hdrOverrideGuard = ThreadLocal<Boolean>()
 
-            guard.set(true)
-            try {
-                it.result =
-                    DisableVideoCodecsPatch.overrideSupportedHdrTypes(it.thisObject as Display.HdrCapabilities)
-            } finally {
-                guard.remove()
+    // Match upstream's call-site replacement rather than globally overriding every platform
+    // getSupportedHdrTypes() call in the process. The extension queries the platform method again
+    // to obtain its original value, so ignore that nested call while applying the override.
+    ::HDRCapabilityFingerprint.dexMethodList.forEach { outerMethod ->
+        outerMethod.hookMethod(scopedHook(supportedHdrTypesMember) {
+            after { innerParam ->
+                if (innerDepth != 0 || hdrOverrideGuard.get() == true) return@after
+
+                hdrOverrideGuard.set(true)
+                try {
+                    innerParam.result = DisableVideoCodecsPatch.overrideSupportedHdrTypes(
+                        innerParam.thisObject as Display.HdrCapabilities
+                    )
+                } finally {
+                    hdrOverrideGuard.remove()
+                }
             }
-        }
+        })
     }
 
     Vp9CapabilityFingerprint.hookMethod {

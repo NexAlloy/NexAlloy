@@ -99,31 +99,47 @@ val videoQualityMenuViewInflateFingerprint = findMethodListDirect {
     }
 }
 
-val ShowVideoQualityQuickMenuFingerprint = findMethodListDirect {
-    val matcher = Fingerprint(
-        accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
-        returnType = "V",
-        strings = listOf("VIDEO_QUALITIES_QUICK_MENU_BOTTOM_SHEET_FRAGMENT"),
-        filters = listOf(
-            opcode(Opcode.MOVE_RESULT),
-            opcode(
-                opcode = Opcode.IF_NEZ,
-                location = MatchAfterWithin(3)
-            ),
-            methodCall(
-                opcode = Opcode.INVOKE_VIRTUAL,
-                name = "getSupportFragmentManager",
-                location = MatchAfterWithin(3)
-            ),
-            methodCall(
-                opcode = Opcode.INVOKE_VIRTUAL,
-                parameters = listOf("L", "Ljava/lang/String;"),
-                returnType = "V",
-                location = MatchAfterWithin(5)
-            )
+private val ShowVideoQualityQuickMenuMethodFingerprint = Fingerprint(
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "V",
+    strings = listOf("VIDEO_QUALITIES_QUICK_MENU_BOTTOM_SHEET_FRAGMENT"),
+    filters = listOf(
+        opcode(Opcode.MOVE_RESULT),
+        opcode(
+            opcode = Opcode.IF_NEZ,
+            location = MatchAfterWithin(3)
+        ),
+        methodCall(
+            opcode = Opcode.INVOKE_VIRTUAL,
+            name = "getSupportFragmentManager",
+            location = MatchAfterWithin(3)
+        ),
+        methodCall(
+            opcode = Opcode.INVOKE_VIRTUAL,
+            parameters = listOf("L", "Ljava/lang/String;"),
+            returnType = "V",
+            location = MatchAfterWithin(5)
         )
-    ).buildMethodMatcher()
-    findMethod { matcher(matcher) }
+    )
+)
+
+val ShowVideoQualityQuickMenuFingerprint = findMethodListDirect {
+    val matcher = ShowVideoQualityQuickMenuMethodFingerprint.buildMethodMatcher()
+    findMethod { matcher(matcher) }.filter {
+        ShowVideoQualityQuickMenuMethodFingerprint.matchOrNull(it) != null
+    }
+}
+
+val ShowVideoQualityQuickMenuFragmentManager = findMethodDirect {
+    ShowVideoQualityQuickMenuFingerprint()
+        .map { method ->
+            ShowVideoQualityQuickMenuMethodFingerprint.matchOrNull(method)!!
+                .instructionMatches[2]
+                .instruction
+                .methodRef!!
+        }
+        .distinctBy { it.descriptor }
+        .single()
 }
 
 internal object ShortsQualityMenuFingerprint : Fingerprint(
