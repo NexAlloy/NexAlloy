@@ -2,87 +2,47 @@ package io.github.nexalloy.morphe.youtube.video.playerresponse
 
 import io.github.nexalloy.patch
 
-@Volatile
-private var beforeVideoIdHooks = emptyArray<Hook.ProtoBufferParameterBeforeVideoId>()
-
-@Volatile
-private var videoIdHooks = emptyArray<Hook.VideoId>()
-
-@Volatile
-private var playlistIdHooks = emptyArray<Hook.PlaylistId>()
-
-@Volatile
-private var afterVideoIdHooks = emptyArray<Hook.ProtoBufferParameter>()
-
-private val hookRegistrationLock = Any()
+private val hooks = mutableSetOf<Hook<*>>()
 
 fun addPlayerResponseMethodHook(hook: Hook<*>) {
-    synchronized(hookRegistrationLock) {
-        when (hook) {
-            is Hook.ProtoBufferParameterBeforeVideoId -> {
-                if (beforeVideoIdHooks.none { it === hook }) {
-                    beforeVideoIdHooks = beforeVideoIdHooks + hook
-                }
-            }
-
-            is Hook.VideoId -> {
-                if (videoIdHooks.none { it === hook }) {
-                    videoIdHooks = videoIdHooks + hook
-                }
-            }
-
-            is Hook.PlaylistId -> {
-                if (playlistIdHooks.none { it === hook }) {
-                    playlistIdHooks = playlistIdHooks + hook
-                }
-            }
-
-            is Hook.ProtoBufferParameter -> {
-                if (afterVideoIdHooks.none { it === hook }) {
-                    afterVideoIdHooks = afterVideoIdHooks + hook
-                }
-            }
-        }
-    }
+    hooks += hook
 }
 
 val PlayerResponseMethodHook = patch {
     val PARAMETER_VIDEO_ID = 0
     val PARAMETER_PROTO_BUFFER = 2
     val PARAMETER_PLAYLIST_ID = 3
-    val parameterIsShortAndOpeningOrPlaying =
-        ::playerParameterBuilderFingerprint.dexMethod.paramTypeNames
-            .withIndex()
-            .indexOfFirst { (index, type) -> index >= 10 && type == "boolean" }
-
-    require(parameterIsShortAndOpeningOrPlaying >= 0) {
-        "Player parameter builder is missing the Shorts state boolean parameter"
-    }
-
-    ::playerParameterBuilderFingerprint.hookMethod {
+    var parameterIsShortAndOpeningOrPlaying = -1
+    ::playerParameterBuilderFingerprint.dexMethod.apply {
+        parameterIsShortAndOpeningOrPlaying =
+            paramTypeNames.zip(paramTypeNames.indices)
+                .indexOfFirst { (type, i) -> i >= 10 && type == "boolean" }
+    }.hookMethod {
         before { param ->
             val videoId = param.args[PARAMETER_VIDEO_ID] as String
             var protobuf = param.args[PARAMETER_PROTO_BUFFER] as String
-            val playlistId = param.args[PARAMETER_PLAYLIST_ID] as String?
+            var playlistId = param.args[PARAMETER_PLAYLIST_ID] as String?
             val isShortAndOpeningOrPlaying =
                 param.args[parameterIsShortAndOpeningOrPlaying] as Boolean
 
-            val beforeHooks = beforeVideoIdHooks
-            val currentVideoIdHooks = videoIdHooks
-            val currentPlaylistIdHooks = playlistIdHooks
-            val afterHooks = afterVideoIdHooks
+            // Reverse the order in order to preserve insertion order of the hooks.
+            val beforeVideoIdHooks =
+                hooks.filterIsInstance<Hook.ProtoBufferParameterBeforeVideoId>().asReversed()
+            val playlistIdHooks = hooks.filterIsInstance<Hook.PlaylistId>().asReversed()
+            val videoIdHooks = hooks.filterIsInstance<Hook.VideoId>().asReversed()
+            val afterVideoIdHooks = hooks.filterIsInstance<Hook.ProtoBufferParameter>().asReversed()
 
-            for (hook in beforeHooks) {
-                protobuf = hook(protobuf, videoId, isShortAndOpeningOrPlaying)
+            beforeVideoIdHooks.forEach {
+                protobuf = it(protobuf, videoId, isShortAndOpeningOrPlaying)
             }
-            for (hook in currentVideoIdHooks) {
-                hook(videoId, isShortAndOpeningOrPlaying)
+            playlistIdHooks.forEach {
+                it(playlistId, isShortAndOpeningOrPlaying)
             }
-            for (hook in currentPlaylistIdHooks) {
-                hook(playlistId, isShortAndOpeningOrPlaying)
+            videoIdHooks.forEach {
+                it(videoId, isShortAndOpeningOrPlaying)
             }
-            for (hook in afterHooks) {
-                protobuf = hook(protobuf, videoId, isShortAndOpeningOrPlaying)
+            afterVideoIdHooks.forEach {
+                protobuf = it(protobuf, videoId, isShortAndOpeningOrPlaying)
             }
             param.args[PARAMETER_PROTO_BUFFER] = protobuf
         }
