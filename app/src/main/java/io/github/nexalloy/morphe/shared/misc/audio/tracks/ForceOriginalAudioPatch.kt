@@ -9,6 +9,9 @@ import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreferenc
 import io.github.nexalloy.morphe.youtube.insertLiteralOverride
 import io.github.nexalloy.patch
 
+/**
+ * Patch shared with YouTube and YT Music.
+ */
 internal fun forceOriginalAudioPatch(
     block: PatchExecutor.() -> Unit = {},
     executeBlock: PatchExecutor.() -> Unit = {},
@@ -26,8 +29,7 @@ internal fun forceOriginalAudioPatch(
     preferenceScreen.addPreferences(
         SwitchPreference(
             key = "morphe_force_original_audio",
-            tag = ForceOriginalAudioSwitchPreference::class.java,
-            summary = true
+            tag = ForceOriginalAudioSwitchPreference::class.java
         )
     )
 
@@ -48,19 +50,8 @@ internal fun forceOriginalAudioPatch(
         }
     }
 
-    val subclassExtensionClassName = subclassExtensionClassDescriptor
-        .removePrefix("L")
-        .removeSuffix(";")
-        .replace('/', '.')
-    val setEnabledMethod = classLoader
-        .loadClass(subclassExtensionClassName)
-        .getDeclaredMethod("setEnabled")
-    mainActivityOnCreateFingerprint.hookMethod {
-        before {
-            setEnabledMethod.invoke(null)
-        }
-    }
-
+    // Disable feature flag that ignores the default track flag
+    // and instead overrides to the user region language.
     if (fixUseLocalizedAudioTrackFlag()) {
         insertLiteralOverride(
             AUDIO_STREAM_IGNORE_DEFAULT_FEATURE_FLAG,
@@ -68,46 +59,13 @@ internal fun forceOriginalAudioPatch(
         )
     }
 
-    if (forcedServerAdaptiveStreaming()) {
-        val idField = ::audioTrackIdField.field.apply { isAccessible = true }
-        val displayNameField = ::audioTrackDisplayNameField.field.apply { isAccessible = true }
-        val isDefaultField = ::audioTrackIsDefaultField.field.apply { isAccessible = true }
-        val trackArrayField = ::audioTrackRecordArrayField.field.apply { isAccessible = true }
-        val setAudioTrack = ::setAudioTrackMethod.method.apply { isAccessible = true }
-        val setVideoQualityList = ::setVideoQualityListMethod.method
-        val playerControllerField = setVideoQualityList.declaringClass.declaredFields
-            .filter { it.type == setAudioTrack.declaringClass }
-            .single()
-            .apply { isAccessible = true }
+    // If there is no feature flag, the SABR protocol parameter (proto buffer) must be overridden:
+    // https://github.com/LuanRT/googlevideo/commit/173a2b0717c19c922e5fb53b170640a9c9d58819
+    //
+    // Since mapping the proto field and finding the appropriate hooking point is very difficult,
+    // 'Default audio track' patches has been implemented (like 'Default video quality' patches).
 
-        class AudioTrackProxy(private val record: Any) : ForceOriginalAudioPatch.AudioTrackInterface {
-            override fun patch_getDisplayName(): String = displayNameField.get(record) as String
-
-            override fun patch_getId(): String = idField.get(record) as String
-
-            override fun patch_getIsDefault(): Boolean = isDefaultField.getBoolean(record)
-
-            override fun equals(other: Any?): Boolean =
-                other is AudioTrackProxy && record == other.record
-
-            override fun hashCode(): Int = record.hashCode()
-        }
-
-        ::setVideoQualityListMethod.hookMethod {
-            before { param ->
-                val audioVideoFormat = param.args.firstOrNull() ?: return@before
-                val rawTracks = trackArrayField.get(audioVideoFormat) as? Array<*> ?: return@before
-                if (rawTracks.isEmpty() || rawTracks.any { it == null }) return@before
-
-                val tracks = Array<ForceOriginalAudioPatch.AudioTrackInterface>(rawTracks.size) { index ->
-                    AudioTrackProxy(rawTracks[index]!!)
-                }
-                val trackId = ForceOriginalAudioPatch.getDefaultAudioTrackId(tracks) ?: return@before
-                val playerController = playerControllerField.get(param.thisObject) ?: return@before
-                setAudioTrack.invoke(playerController, trackId)
-            }
-        }
-    }
+    // TODO
 
     executeBlock()
 }
