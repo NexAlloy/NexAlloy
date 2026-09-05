@@ -5,7 +5,6 @@ import io.github.nexalloy.FindFieldFunc
 import io.github.nexalloy.FindMethodFunc
 import io.github.nexalloy.FindMethodListFunc
 import org.luckypray.dexkit.DexKitBridge
-import org.luckypray.dexkit.query.enums.MatchType
 import org.luckypray.dexkit.query.matchers.ClassMatcher
 import org.luckypray.dexkit.query.matchers.MethodMatcher
 import org.luckypray.dexkit.query.matchers.base.OpCodesMatcher
@@ -91,7 +90,7 @@ fun MethodMatcher.opcodes(opcodes: Collection<Opcode>): OpCodesMatcher {
 
 fun MethodMatcher.accessFlags(vararg accessFlags: AccessFlags) {
     val modifiers = accessFlags.fold(0) { acc, next -> acc or next.modifier }
-    if (modifiers != 0) this.modifiers(modifiers, MatchType.Equals)
+    if (modifiers != 0) this.modifiers(modifiers)
     if (accessFlags.contains(AccessFlags.CONSTRUCTOR)) {
         if (accessFlags.contains(AccessFlags.STATIC)) this.name = "<clinit>"
         else this.name = "<init>"
