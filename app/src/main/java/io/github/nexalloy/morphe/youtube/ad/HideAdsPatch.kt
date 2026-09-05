@@ -47,17 +47,24 @@ val HideAds = patch(
     addEngagementPanelIdHook(AdsFilter::hidePlayerPopupAds)
 
     // Hide video ads
+
     setOf(
         LoadVideoAdsFingerprint,
         PlayerBytesAdLayoutFingerprint,
     ).forEach { fingerprint ->
         fingerprint.hookMethod {
             before {
-                if (AdsFilter.hideVideoAds())
+                if(AdsFilter.hideVideoAds())
                     it.result = null
             }
         }
     }
+
+    // TODO BuildClientContextBody
+
+    // TODO: Hide YouTube Premium promotions
+
+    // TODO: Hide end screen store banner
 
     // Hide get premium
     GetPremiumViewFingerprint.hookMethod {
@@ -71,6 +78,7 @@ val HideAds = patch(
 
     // Hide player overlay view. This can be hidden with a regular litho filter
     // but an empty space remains.
+
     PlayerOverlayTimelyShelfFingerprint.hookMethod {
         val playerOverlayEventClass = ::PlayerOverlayEventType.clazz
         val playerOverlayIdField = ::PlayerOverlayIdField.field
@@ -96,10 +104,16 @@ val HideAds = patch(
         object : XC_MethodHook() {
             override fun afterHookedMethod(param: MethodHookParam) {
                 if (param.args[0] == adAttributionId) {
-                    val view = param.result as? View ?: return
                     Logger.printDebug { "Hide Ad Attribution View" }
-                    AdsFilter.hideAdAttributionView(view)
+                    AdsFilter.hideAdAttributionView(param.result as View)
                 }
             }
         })
+
+    // TODO Hide paid promotion label in miniplayer
+
+    // TODO [AdsFilter.hideAds] OsNameHook
+    // TODO [AdsFilter.hideVideoAds] OsNameHook
+    // TODO [AdsFilter.overrideGuideOSName] OsNameHook
+
 }

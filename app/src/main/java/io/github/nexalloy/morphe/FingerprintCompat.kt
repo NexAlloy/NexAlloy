@@ -15,41 +15,9 @@ import org.luckypray.dexkit.util.DexSignUtil.getTypeName
 fun getTypeNameCompat(it: String): String? {
     return when {
         it == "this" -> null
-        it.isNotEmpty() && it.all { char -> char == '[' } -> null
         it.trimStart('[').startsWith('L') && !it.endsWith(';') -> null
-        else -> runCatching { getTypeName(it) }.getOrNull()
+        else -> getTypeName(it)
     }
-}
-
-internal fun methodTypeDeclarationsMatch(
-    targetDefiningClass: CharSequence,
-    targetReturnType: CharSequence,
-    targetParameters: Iterable<CharSequence>,
-    fingerprintDefiningClass: CharSequence?,
-    fingerprintReturnType: CharSequence?,
-    fingerprintParameters: Iterable<CharSequence>?,
-): Boolean {
-    if (fingerprintDefiningClass != null &&
-        !StringComparisonType.typeDeclarationToComparison(fingerprintDefiningClass)
-            .compare(targetDefiningClass, fingerprintDefiningClass)
-    ) {
-        return false
-    }
-
-    if (fingerprintReturnType != null &&
-        !StringComparisonType.typeDeclarationToComparison(fingerprintReturnType)
-            .compare(targetReturnType, fingerprintReturnType)
-    ) {
-        return false
-    }
-
-    if (fingerprintParameters != null &&
-        !parametersMatch(targetParameters, fingerprintParameters)
-    ) {
-        return false
-    }
-
-    return true
 }
 
 enum class AccessFlags(val modifier: Int) {
@@ -89,7 +57,7 @@ fun MethodMatcher.opcodes(opcodes: Collection<Opcode>): OpCodesMatcher {
 }
 
 fun MethodMatcher.accessFlags(vararg accessFlags: AccessFlags) {
-    val modifiers = accessFlags.fold(0) { acc, next -> acc or next.modifier }
+    val modifiers = accessFlags.map { it.modifier }.reduce { acc, next -> acc or next }
     if (modifiers != 0) this.modifiers(modifiers)
     if (accessFlags.contains(AccessFlags.CONSTRUCTOR)) {
         if (accessFlags.contains(AccessFlags.STATIC)) this.name = "<clinit>"
@@ -112,6 +80,7 @@ fun MethodMatcher.returns(returnType: String) {
 fun MethodMatcher.literal(literalSupplier: () -> Number) {
     this.usingNumbers(literalSupplier())
 }
+
 
 private fun findLongestOpcodeSequence(filters: List<InstructionFilter>): List<InstructionFilter> {
     if (filters.isEmpty()) return emptyList()
@@ -217,12 +186,15 @@ class FingerprintDsl(init: FingerprintDsl.() -> Unit) {
             parameters = parameters,
         )
 
+        // Apply classFinder or classMatcher
         if (classFinder != null) {
             fp.classFinder = classFinder
         }
         if (classMatcherBlock != null) {
             fp.classMatcherBlock = classMatcherBlock
         }
+
+        // Apply extra methodMatcher blocks
         if (methodMatcherBlocks.isNotEmpty()) {
             fp.extraMethodMatcherBlocks = methodMatcherBlocks.toList()
         }
@@ -245,17 +217,13 @@ open class Fingerprint internal constructor(
     internal var classFinder: FindClassFunc? = null
     internal var classMatcherBlock: (ClassMatcher.() -> Unit)? = null
     internal var extraMethodMatcherBlocks: List<MethodMatcher.() -> Unit>? = null
-    private val definingClassPattern = definingClass
-    private val returnTypePattern = returnType
-    private val parametersPattern = parameters
 
     init {
         if (classFingerprint != null) {
             classFinder = { classFingerprint.run().declaredClass!! }
         }
-        if (custom != null) {
+        if(custom != null)
             extraMethodMatcherBlocks = listOf(custom)
-        }
     }
 
     /**
@@ -294,6 +262,21 @@ open class Fingerprint internal constructor(
     fun buildMethodMatcher(): MethodMatcher =
         MethodMatcher().apply(methodMatcherBuilder)
 
+    /**
+     * A fingerprint for a method. A fingerprint is a partial description of a method,
+     * used to uniquely match a method by its characteristics.
+     *
+     * See the patcher documentation for more detailed explanations and example fingerprinting.
+     *
+     * @param classFingerprint Fingerprint that finds the class this fingerprint resolves against.
+     * @param name Exact method name.
+     * @param accessFlags The exact access flags using values of [AccessFlags].
+     * @param returnType The return type. Type declaration follow the semantics described in [StringComparisonType].
+     * @param parameters The parameters. Type declaration follow the semantics described in [StringComparisonType].
+     * @param filters A list of filters to match, declared in the same order the instructions appear in the method.
+     * @param strings A list of strings that appear anywhere in the method in any order. Compared using [String.contains].
+     * @param custom A custom condition for this fingerprint.
+     */
     constructor(
         classFingerprint: Fingerprint? = null,
         name: String? = null,
@@ -307,6 +290,20 @@ open class Fingerprint internal constructor(
         classFingerprint, null, name, accessFlags, returnType, parameters, filters, strings, custom
     )
 
+    /**
+     * A fingerprint for a method. A fingerprint is a partial description of a method,
+     * used to uniquely match a method by its characteristics.
+     *
+     * See the patcher documentation for more detailed explanations and example fingerprinting.
+     *
+     * @param name Exact method name.
+     * @param accessFlags The exact access flags using values of [AccessFlags].
+     * @param returnType The return type. Type declaration follow the semantics described in [StringComparisonType].
+     * @param parameters The parameters. Type declaration follow the semantics described in [StringComparisonType].
+     * @param filters A list of filters to match, declared in the same order the instructions appear in the method.
+     * @param strings A list of strings that appear anywhere in the method in any order. Compared using [String.contains].
+     * @param custom A custom condition for this fingerprint.
+     */
     constructor(
         name: String? = null,
         accessFlags: List<AccessFlags>? = null,
@@ -319,7 +316,23 @@ open class Fingerprint internal constructor(
         null, null, name, accessFlags, returnType, parameters, filters, strings, custom
     )
 
+    /**
+     * A fingerprint for a method. A fingerprint is a partial description of a method,
+     * used to uniquely match a method by its characteristics.
+     *
+     * See the patcher documentation for more detailed explanations and example fingerprinting.
+     *
+     * @param definingClass Defining class. Type declaration follow the semantics described in [StringComparisonType].
+     * @param name Exact method name.
+     * @param accessFlags The exact access flags using values of [AccessFlags].
+     * @param returnType The return type. Type declaration follow the semantics described in [StringComparisonType].
+     * @param parameters The parameters. Type declaration follow the semantics described in [StringComparisonType].
+     * @param filters A list of filters to match, declared in the same order the instructions appear in the method.
+     * @param strings A list of strings that appear anywhere in the method in any order. Compared using [String.contains].
+     * @param custom A custom condition for this fingerprint.
+     */
     constructor(
+// Required to disambiguate if defining class or class fingerprint is not specified.
         definingClass: String? = null,
         name: String? = null,
         accessFlags: List<AccessFlags>? = null,
@@ -335,21 +348,6 @@ open class Fingerprint internal constructor(
     context(dexkit: DexKitBridge)
     operator fun invoke(): MethodData {
         return run()
-    }
-
-    private fun matchesTypeDeclarations(method: MethodData): Boolean {
-        val targetDefiningClass = method.declaredClass?.descriptor ?: return false
-        val targetReturnType = method.returnType?.descriptor ?: return false
-        val targetParameters = method.paramTypes.map { it.descriptor }
-
-        return methodTypeDeclarationsMatch(
-            targetDefiningClass = targetDefiningClass,
-            targetReturnType = targetReturnType,
-            targetParameters = targetParameters,
-            fingerprintDefiningClass = definingClassPattern,
-            fingerprintReturnType = returnTypePattern,
-            fingerprintParameters = parametersPattern,
-        )
     }
 
     context(dexkit: DexKitBridge)
@@ -389,73 +387,75 @@ open class Fingerprint internal constructor(
         method: MethodData
     ): Match? {
         val filtersLocal = filters
-        val instructionMatches = when {
-            filtersLocal == null -> null
-            filtersLocal.isEmpty() -> emptyList()
-            else -> {
-                val instructions = method.instructions.toList()
+        val instructionMatches = if (filtersLocal == null) {
+            null
+        } else {
+            val instructions = method.instructions.toList() ?: return null
 
-                fun matchFilters(): List<Match.InstructionMatch>? {
-                    val lastMethodIndex = instructions.lastIndex
-                    var instructionMatches: MutableList<Match.InstructionMatch>? = null
+            fun matchFilters(): List<Match.InstructionMatch>? {
+                val lastMethodIndex = instructions.lastIndex
+                var instructionMatches: MutableList<Match.InstructionMatch>? = null
 
-                    var firstInstructionIndex = 0
-                    var lastMatchIndex = -1
+                var firstInstructionIndex = 0
+                var lastMatchIndex = -1
 
-                    firstFilterLoop@ while (true) {
-                        var firstFilterIndex = -1
-                        var subIndex = firstInstructionIndex
+                firstFilterLoop@ while (true) {
+                    // Matched index of the first filter.
+                    var firstFilterIndex = -1
+                    var subIndex = firstInstructionIndex
 
-                        for (filterIndex in filtersLocal.indices) {
-                            val filter = filtersLocal[filterIndex]
-                            val location = filter.location
-                            var instructionsMatched = false
+                    for (filterIndex in filtersLocal.indices) {
+                        val filter = filtersLocal[filterIndex]
+                        val location = filter.location
+                        var instructionsMatched = false
 
-                            while (subIndex <= lastMethodIndex &&
-                                location.indexIsValidForMatching(
-                                    lastMatchIndex, subIndex
-                                )
-                            ) {
-                                val instruction = instructions[subIndex]
-                                if (filter.matches(method, instruction)) {
-                                    lastMatchIndex = subIndex
+                        while (subIndex <= lastMethodIndex &&
+                            location.indexIsValidForMatching(
+                                lastMatchIndex, subIndex
+                            )
+                        ) {
+                            val instruction = instructions[subIndex]
+                            if (filter.matches(method, instruction)) {
+                                lastMatchIndex = subIndex
 
-                                    if (filterIndex == 0) {
-                                        firstFilterIndex = subIndex
-                                    }
-                                    if (instructionMatches == null) {
-                                        instructionMatches = ArrayList(filtersLocal.size)
-                                    }
-                                    instructionMatches += Match.InstructionMatch(
-                                        filter,
-                                        subIndex,
-                                        instruction
-                                    )
-                                    instructionsMatched = true
-                                    subIndex++
-                                    break
-                                }
-                                subIndex++
-                            }
-
-                            if (!instructionsMatched) {
                                 if (filterIndex == 0) {
-                                    return null
+                                    firstFilterIndex = subIndex
                                 }
-
-                                firstInstructionIndex = firstFilterIndex + 1
-                                lastMatchIndex = -1
-                                instructionMatches?.clear()
-                                continue@firstFilterLoop
+                                if (instructionMatches == null) {
+                                    instructionMatches = ArrayList(filtersLocal.size)
+                                }
+                                instructionMatches += Match.InstructionMatch(
+                                    filter,
+                                    subIndex,
+                                    instruction
+                                )
+                                instructionsMatched = true
+                                subIndex++
+                                break
                             }
+                            subIndex++
                         }
 
-                        return instructionMatches
-                    }
-                }
+                        if (!instructionsMatched) {
+                            if (filterIndex == 0) {
+                                return null // First filter has no more matches to start from.
+                            }
 
-                matchFilters() ?: return null
+                            // Try again with the first filter, starting from
+                            // the next possible first filter index.
+                            firstInstructionIndex = firstFilterIndex + 1
+                            lastMatchIndex = -1
+                            instructionMatches?.clear()
+                            continue@firstFilterLoop
+                        }
+                    }
+
+                    // All instruction filters matches.
+                    return instructionMatches
+                }
             }
+
+            matchFilters() ?: return null
         }
 
         return Match(
@@ -473,16 +473,29 @@ class Match constructor(
     val method: MethodData,
     private val _instructionMatches: List<InstructionMatch>?,
 ) {
+
+    /**
+     * Matches corresponding to the [InstructionFilter] declared in the [Fingerprint].
+     */
     val instructionMatches
         get() = _instructionMatches
             ?: throw Exception("Fingerprint declared no instruction filters")
     val instructionMatchesOrNull = _instructionMatches
 
+    /**
+     * A match for an [InstructionFilter].
+     * @param filter The filter that matched
+     * @param index The instruction index it matched with.
+     * @param instruction The instruction that matched.
+     */
     class InstructionMatch internal constructor(
         val filter: InstructionFilter,
         val index: Int,
         val instruction: InstructionData
     ) {
+        /**
+         * Helper method to simplify casting the instruction to it's known and expected type.
+         */
         @Suppress("UNCHECKED_CAST")
         fun <T> getInstruction(): T = instruction as T
 
