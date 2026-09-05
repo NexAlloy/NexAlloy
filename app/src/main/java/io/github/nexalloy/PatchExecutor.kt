@@ -18,6 +18,7 @@ import de.robv.android.xposed.XposedHelpers
 import io.github.libxposed.api.XposedInterface
 import io.github.libxposed.api.XposedInterface.Hooker
 import io.github.libxposed.api.XposedModuleInterface
+import io.github.nexalloy.BuildConfig.CI_BUILD
 import io.github.nexalloy.BuildConfig.DEBUG
 import io.github.nexalloy.morphe.Fingerprint
 import org.luckypray.dexkit.DexKitBridge
@@ -130,6 +131,13 @@ internal fun decodeCacheStringList(value: String): List<String>? {
     return result
 }
 
+internal fun shouldUseDexKitCache(
+    cachedId: String?,
+    expectedId: String,
+    debug: Boolean,
+    ciBuild: Boolean,
+): Boolean = cachedId == expectedId && (!debug || ciBuild)
+
 class SharedPrefCache(app: Application) : DexKitCacheBridge.Cache {
     val pref = app.getSharedPreferences("xpmorphe", MODE_PRIVATE)!!
     private val map = ConcurrentHashMap<String, String>().apply {
@@ -221,13 +229,14 @@ class PatchExecutor(
 
     @Suppress("UNCHECKED_CAST")
     private fun loadCacheIfValid() {
-        // cache by host update time + module version
-        // also no cache if is DEBUG
+        // Cache is normally disabled for local debug builds so fingerprint changes can be
+        // tested without stale data. CI debug artifacts are immutable per commit, so keeping
+        // their cache makes repeated on-device cold starts representative of release builds.
         val packageInfo = appContext.packageManager.getPackageInfo(appContext.packageName, 0)
 
         val id = "${packageInfo.lastUpdateTime}-$moduleRel"
         val cachedId = cache.getString("id", null)
-        val isCached = cachedId.equals(id) && !DEBUG
+        val isCached = shouldUseDexKitCache(cachedId, id, DEBUG, CI_BUILD)
 
         Logger.printInfo { "cache ID : $id" }
         Logger.printInfo { "cached ID: ${cachedId ?: ""}" }
