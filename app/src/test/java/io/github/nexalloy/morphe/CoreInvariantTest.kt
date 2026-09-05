@@ -5,6 +5,7 @@ import io.github.nexalloy.ScopedHookStateStack
 import io.github.nexalloy.decodeCacheStringList
 import io.github.nexalloy.encodeCacheStringList
 import io.github.nexalloy.invokeFindClass
+import io.github.nexalloy.shouldUseDexKitCache
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -60,6 +61,17 @@ class CoreInvariantTest {
         assertNull(decodeCacheStringList("list-v1:nope:value"))
         assertNull(decodeCacheStringList("list-v1:10:short"))
         assertNull(decodeCacheStringList("list-v1:-1:"))
+    }
+
+    @Test
+    fun ciDebugArtifactsReuseDexKitCacheButLocalDebugDoesNot() {
+        val id = "host-module"
+
+        assertTrue(shouldUseDexKitCache(id, id, debug = false, ciBuild = false))
+        assertTrue(shouldUseDexKitCache(id, id, debug = true, ciBuild = true))
+        assertFalse(shouldUseDexKitCache(id, id, debug = true, ciBuild = false))
+        assertFalse(shouldUseDexKitCache("stale", id, debug = false, ciBuild = false))
+        assertFalse(shouldUseDexKitCache("stale", id, debug = true, ciBuild = true))
     }
 
     @Test
