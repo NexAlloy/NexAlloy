@@ -35,42 +35,26 @@ val playerParameterBuilderClass = findClassDirect {
         .paramTypes[2]
 }
 
-internal fun matchesPlayerParameterBuilderSignature(parameters: List<String>): Boolean {
-    if (parameters.size !in 15..16) return false
-
-    fun objectType(index: Int) =
-        parameters[index].startsWith('L') && parameters[index].endsWith(';')
-
-    if (parameters[0] != "Ljava/lang/String;" ||
-        parameters[1] != "[B" ||
-        parameters[2] != "Ljava/lang/String;" ||
-        parameters[3] != "Ljava/lang/String;" ||
-        parameters[4] != "I" ||
-        parameters[5] != "Z" ||
-        parameters[6] != "I" ||
-        !objectType(7) ||
-        parameters[8] != "Ljava/util/Set;" ||
-        parameters[9] != "Ljava/lang/String;" ||
-        parameters[10] != "Ljava/lang/String;" ||
-        !objectType(11) ||
-        parameters[12] != "Z" ||
-        parameters[13] != "Z" ||
-        parameters[14] != "Z"
-    ) {
-        return false
-    }
-
-    return parameters.size == 15 || parameters[15] == "Lj$/time/Duration;"
-}
-
 val playerParameterBuilderFingerprint = findMethodDirect {
     playerParameterBuilderClass().findMethod {
         matcher {
-            paramCount(min = 15, max = 16)
+            // java.lang.String,
+            // byte[],
+            // java.lang.String,
+            // java.lang.String,
+            // int,
+            // int / [boolean, int, XXX]
+            // java.util.Set,
+            // java.lang.String,
+            // java.lang.String,
+            // XXX
+            // boolean, // (IsShortAndOpeningOrPlaying)
+            // boolean,
+            // boolean,
+            // boolean / XXX.time.Duration
+            paramCount(min = 11)
         }
-    }.single { method ->
-        matchesPlayerParameterBuilderSignature(method.paramTypes.map { it.descriptor })
-    }
+    }.single()
         // Unit Test
         .also {
             if (BuildConfig.DEBUG) {
