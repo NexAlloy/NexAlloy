@@ -8,6 +8,7 @@ import io.github.nexalloy.PatchExecutor
 import io.github.nexalloy.hookMethod
 import io.github.nexalloy.morphe.shared.misc.litho.context.ConversionContext
 import io.github.nexalloy.morphe.youtube.insertLiteralOverride
+import io.github.nexalloy.new
 import io.github.nexalloy.patch
 import io.github.nexalloy.scopedHook
 import java.nio.ByteBuffer
@@ -25,7 +26,7 @@ fun addLithoFilter(filter: Filter){
  * The pathBuilder is used to filter components by their path.
  *
  * Additionally, the method contains a reference to the component's identifier.
- * The identifier is used to filter components by its identifier.
+ * The identifier is used to filter components by their identifier.
  *
  * The protobuf buffer is passed along from a different injection point before the filtering occurs.
  * The buffer is a large byte array that represents the component tree.
@@ -78,7 +79,9 @@ internal fun sharedLithoFilterPatch(
     LithoFilterPatch::class.java.getDeclaredMethod("useLegacyLithoFiltering")
         .hookMethod(XC_MethodReplacement.returnConstant(useLegacyLithoFiltering()))
 
-    if (hookNonNativeBuffer()) {
+    //region Pass the buffer into extension.
+    if (!hookNonNativeBuffer()) {
+        // Non-native buffer.
         ProtobufBufferReferenceFingerprint.hookMethod {
             before { param ->
                 LithoFilterPatch.setProtoBuffer(param.args[1] as ByteBuffer)
@@ -86,49 +89,36 @@ internal fun sharedLithoFilterPatch(
         }
     }
 
-    val buttonViewModelFrames = ThreadLocal<MutableList<Any?>>()
+    //endregion
+
+    // region Hook the method that parses bytes into a ComponentContext.
+
+    // Return an EmptyComponent instead of the original component if the filterState method returns true.
+
+    val buttonViewModelThreadLocal = ThreadLocal<Any?>()
     ComponentCreateFingerprint.hookMethod(scopedHook(::buttonViewModelReceiver.method) {
         before {
-            val frames = buttonViewModelFrames.get() ?: return@before
-            if (frames.isNotEmpty()) {
-                frames[frames.lastIndex] = it.args[0]
-            }
+            buttonViewModelThreadLocal.set(it.args[0])
         }
     })
 
     ComponentCreateFingerprint.hookMethod {
-        val emptyComponentBuilder = EmptyComponentBuilderFingerprint.method
-        val emptyComponentField = emptyComponentBuilder.returnType.declaredFields
-            .single()
-            .apply { isAccessible = true }
+        val emptyComponentClazz = ::emptyComponentClass.clazz
         val protoBufferEncodeMethod = ProtobufBufferEncodeFingerprint.method
         val protoBufferEncodeClass = ProtobufBufferEncodeFingerprint.declaredClass
         val accessibilityIdMethod = ::AccessibilityIdMethod.method
         val accessibilityTextMethod = ::accessibilityTextMethod.method
-        before {
-            val frames = buttonViewModelFrames.get()
-                ?: mutableListOf<Any?>().also(buttonViewModelFrames::set)
-            frames.add(null)
-        }
         after { param ->
-            val frames = buttonViewModelFrames.get()
-            val buttonViewModel = if (!frames.isNullOrEmpty()) {
-                frames.removeAt(frames.lastIndex)
-            } else {
-                null
-            }
-            if (frames.isNullOrEmpty()) {
-                buttonViewModelFrames.remove()
-            }
-            if (param.hasThrowable()) return@after
-
             val conversion = param.args[1]
             val bufferParent = param.args[2]
+            // Verify it's the expected subclass just in case.
             val buffer = if (protoBufferEncodeClass.isInstance(bufferParent)) {
-                protoBufferEncodeMethod.invoke(bufferParent) as ByteArray?
+                protoBufferEncodeMethod(bufferParent) as ByteArray?
             } else byteArrayOf()
-            val accessibilityId = buttonViewModel?.let { accessibilityIdMethod.invoke(it) as String? }
-            val accessibilityText = buttonViewModel?.let { accessibilityTextMethod.invoke(it) as String? }
+            val buttonViewModel = buttonViewModelThreadLocal.get()
+            buttonViewModelThreadLocal.remove()
+            val accessibilityId = buttonViewModel?.let { accessibilityIdMethod(it) as String? }
+            val accessibilityText = buttonViewModel?.let { accessibilityTextMethod(it) as String? }
 
             if (LithoFilterPatch.isFiltered(
                     ConversionContext(conversion),
@@ -137,11 +127,14 @@ internal fun sharedLithoFilterPatch(
                     accessibilityText
                 )
             ) {
-                val emptyComponentBuilderResult = emptyComponentBuilder.invoke(null, param.args[0])
-                param.result = emptyComponentField.get(emptyComponentBuilderResult)
+                param.result = emptyComponentClazz.new()
             }
         }
     }
+
+    //endregion
+
+    // region Change Litho thread executor to 1 thread to fix layout issue in unpatched YouTube.
 
     ::lithoThreadExecutorFingerprint.hookMethod {
         before {
@@ -150,7 +143,16 @@ internal fun sharedLithoFilterPatch(
         }
     }
 
+    // endregion
+
+    // region A/B test of new Litho native code.
+
+    // Turn off a feature flag that enables native code of protobuf parsing (Upb protobuf).
+    // If this is enabled, then the litho protobuffer hook will always show an empty buffer
+    // since it's no longer handled by the hooked Java code.
     if (overrideUpbFeatureFlag()) {
         insertLiteralOverride(45419603L)
     }
+
+    // endregion
 }
