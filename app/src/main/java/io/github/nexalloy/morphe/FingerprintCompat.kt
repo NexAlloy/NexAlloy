@@ -272,7 +272,7 @@ open class Fingerprint internal constructor(
         if (accessFlags != null) accessFlags(*accessFlags.toTypedArray())
         if (returnType != null) returns(returnType)
         if (parameters != null) parameters(*parameters.toTypedArray())
-        if (strings != null) usingStrings(strings)
+        if (strings != null) for (str in strings) addEqString(str)
         filters?.forEach { filter ->
             filter.addQuery()
         }
@@ -294,21 +294,6 @@ open class Fingerprint internal constructor(
     fun buildMethodMatcher(): MethodMatcher =
         MethodMatcher().apply(methodMatcherBuilder)
 
-    /**
-     * A fingerprint for a method. A fingerprint is a partial description of a method,
-     * used to uniquely match a method by its characteristics.
-     *
-     * See the patcher documentation for more detailed explanations and example fingerprinting.
-     *
-     * @param classFingerprint Fingerprint that finds the class this fingerprint resolves against.
-     * @param name Exact method name.
-     * @param accessFlags The exact access flags using values of [AccessFlags].
-     * @param returnType The return type. Type declaration follow the semantics described in [StringComparisonType].
-     * @param parameters The parameters. Type declaration follow the semantics described in [StringComparisonType].
-     * @param filters A list of filters to match, declared in the same order the instructions appear in the method.
-     * @param strings A list of strings that appear anywhere in the method in any order. Compared using [String.contains].
-     * @param custom A custom condition for this fingerprint.
-     */
     constructor(
         classFingerprint: Fingerprint? = null,
         name: String? = null,
@@ -322,20 +307,6 @@ open class Fingerprint internal constructor(
         classFingerprint, null, name, accessFlags, returnType, parameters, filters, strings, custom
     )
 
-    /**
-     * A fingerprint for a method. A fingerprint is a partial description of a method,
-     * used to uniquely match a method by its characteristics.
-     *
-     * See the patcher documentation for more detailed explanations and example fingerprinting.
-     *
-     * @param name Exact method name.
-     * @param accessFlags The exact access flags using values of [AccessFlags].
-     * @param returnType The return type. Type declaration follow the semantics described in [StringComparisonType].
-     * @param parameters The parameters. Type declaration follow the semantics described in [StringComparisonType].
-     * @param filters A list of filters to match, declared in the same order the instructions appear in the method.
-     * @param strings A list of strings that appear anywhere in the method in any order. Compared using [String.contains].
-     * @param custom A custom condition for this fingerprint.
-     */
     constructor(
         name: String? = null,
         accessFlags: List<AccessFlags>? = null,
@@ -348,21 +319,6 @@ open class Fingerprint internal constructor(
         null, null, name, accessFlags, returnType, parameters, filters, strings, custom
     )
 
-    /**
-     * A fingerprint for a method. A fingerprint is a partial description of a method,
-     * used to uniquely match a method by its characteristics.
-     *
-     * See the patcher documentation for more detailed explanations and example fingerprinting.
-     *
-     * @param definingClass Defining class. Type declaration follow the semantics described in [StringComparisonType].
-     * @param name Exact method name.
-     * @param accessFlags The exact access flags using values of [AccessFlags].
-     * @param returnType The return type. Type declaration follow the semantics described in [StringComparisonType].
-     * @param parameters The parameters. Type declaration follow the semantics described in [StringComparisonType].
-     * @param filters A list of filters to match, declared in the same order the instructions appear in the method.
-     * @param strings A list of strings that appear anywhere in the method in any order. Compared using [String.contains].
-     * @param custom A custom condition for this fingerprint.
-     */
     constructor(
         definingClass: String? = null,
         name: String? = null,
@@ -400,7 +356,7 @@ open class Fingerprint internal constructor(
     fun run(): MethodData {
         val methodMatcher = buildMethodMatcher()
 
-        val candidates = if (classMatcherBlock != null) {
+        val results = if (classMatcherBlock != null) {
             dexkit.findClass {
                 matcher(ClassMatcher().apply(classMatcherBlock!!))
             }.findMethod {
@@ -414,9 +370,6 @@ open class Fingerprint internal constructor(
             dexkit.findMethod {
                 matcher(methodMatcher)
             }
-        }
-        val results = candidates.filter {
-            matchesTypeDeclarations(it) && matchOrNull(it) != null
         }
         if (results.size != 1) {
             val name = this::class.simpleName ?: "Anonymous Fingerprint"
@@ -520,29 +473,16 @@ class Match constructor(
     val method: MethodData,
     private val _instructionMatches: List<InstructionMatch>?,
 ) {
-
-    /**
-     * Matches corresponding to the [InstructionFilter] declared in the [Fingerprint].
-     */
     val instructionMatches
         get() = _instructionMatches
             ?: throw Exception("Fingerprint declared no instruction filters")
     val instructionMatchesOrNull = _instructionMatches
 
-    /**
-     * A match for the [InstructionFilter].
-     * @param filter The filter that matched
-     * @param index The instruction index it matched with.
-     * @param instruction The instruction that matched.
-     */
     class InstructionMatch internal constructor(
         val filter: InstructionFilter,
         val index: Int,
         val instruction: InstructionData
     ) {
-        /**
-         * Helper method to simplify casting the instruction to it's known and expected type.
-         */
         @Suppress("UNCHECKED_CAST")
         fun <T> getInstruction(): T = instruction as T
 
