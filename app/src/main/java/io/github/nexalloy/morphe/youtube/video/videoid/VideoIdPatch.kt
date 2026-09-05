@@ -14,15 +14,6 @@ import io.github.nexalloy.patch
 val videoIdHooks: MutableList<(String) -> Unit> = mutableListOf()
 
 /**
- * Hooks regular-video ID changes during background playback where no video UI is visible.
- */
-private val backgroundVideoIdHooks: MutableList<(String) -> Unit> = mutableListOf()
-
-fun hookBackgroundPlayVideoId(hook: (String) -> Unit) {
-    backgroundVideoIdHooks += hook
-}
-
-/**
  * Hooks the playlist ID of every video when loaded.
  * Supports all videos and functions in all situations.
  *
@@ -91,15 +82,6 @@ val VideoId = patch(
             val videoId = videoIdMethod(param.args[0]) as String
             Logger.printDebug { "setCurrentVideoId: $videoId" }
             videoIdHooks.forEach { it(videoId) }
-        }
-    }
-
-    VideoIdBackgroundPlayFingerprint.hookMethod {
-        val backgroundVideoIdField = ::backgroundVideoIdField.field
-        after { param ->
-            val videoId = backgroundVideoIdField.get(param.thisObject) as? String ?: return@after
-            Logger.printDebug { "setBackgroundVideoId: $videoId" }
-            backgroundVideoIdHooks.forEach { it(videoId) }
         }
     }
 
