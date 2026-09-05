@@ -51,9 +51,7 @@ val AutoCaptions = patch(
 
     if (is_20_26_or_greater) {
         if (is_21_30_or_greater) {
-            val getters = ::noVolumeCaptionsFeatureFlagGetters.dexMethodList
-            require(getters.isNotEmpty()) { "No mute auto-captions feature flag getters found" }
-            getters.forEach { method ->
+            ::noVolumeCaptionsFeatureFlagGetters.dexMethodList.forEach { method ->
                 method.hookMethod {
                     after { param ->
                         if (param.hasThrowable()) return@after
