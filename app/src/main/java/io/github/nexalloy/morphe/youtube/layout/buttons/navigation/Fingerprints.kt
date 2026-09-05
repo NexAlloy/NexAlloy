@@ -4,11 +4,11 @@ import io.github.nexalloy.morphe.AccessFlags
 import io.github.nexalloy.morphe.Fingerprint
 import io.github.nexalloy.morphe.InstructionLocation.MatchAfterWithin
 import io.github.nexalloy.morphe.Opcode
+import io.github.nexalloy.morphe.OpcodesFilter
 import io.github.nexalloy.morphe.findMethodDirect
 import io.github.nexalloy.morphe.fingerprint
 import io.github.nexalloy.morphe.literal
 import io.github.nexalloy.morphe.methodCall
-import io.github.nexalloy.morphe.opcode
 import io.github.nexalloy.morphe.strings
 
 internal const val ANDROID_AUTOMOTIVE_STRING = "Android Automotive"
@@ -32,13 +32,10 @@ internal object CreatePivotBarFingerprint : Fingerprint(
         "Landroid/widget/TextView;",
         "Ljava/lang/CharSequence;",
     ),
-    filters = listOf(
-        methodCall(
-            definingClass = "Landroid/widget/TextView;",
-            name = "setText"
-        ),
-        opcode(Opcode.RETURN_VOID)
-    )
+    filters = OpcodesFilter.opcodesToFilters(
+        Opcode.INVOKE_VIRTUAL,
+        Opcode.RETURN_VOID,
+    ),
 )
 
 internal object AutoHideNavigationBarOnFeedScrollingFingerprint : Fingerprint(
