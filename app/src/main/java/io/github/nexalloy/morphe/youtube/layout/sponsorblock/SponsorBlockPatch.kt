@@ -4,6 +4,7 @@ import android.graphics.Canvas
 import android.graphics.Rect
 import android.os.Build
 import android.view.ViewGroup
+import android.widget.TextView
 import app.morphe.extension.shared.ResourceUtils
 import app.morphe.extension.shared.sponsorblock.objects.SegmentCategoryPreference
 import app.morphe.extension.shared.sponsorblock.ui.SponsorBlockAboutPreference
@@ -38,7 +39,7 @@ import io.github.nexalloy.morphe.youtube.video.information.VideoInformationPatch
 import io.github.nexalloy.morphe.youtube.video.information.onCreateHook
 import io.github.nexalloy.morphe.youtube.video.information.videoTimeHooks
 import io.github.nexalloy.morphe.youtube.video.videoid.VideoId
-import io.github.nexalloy.morphe.youtube.video.videoid.hookBackgroundPlayVideoId
+import io.github.nexalloy.morphe.youtube.video.videoid.videoIdHooks
 import io.github.nexalloy.patch
 import io.github.nexalloy.scopedHook
 import org.luckypray.dexkit.wrap.DexMethod
@@ -59,6 +60,8 @@ val SponsorBlock = patch(
     )
 
     PreferenceScreen.SPONSORBLOCK.addPreferences(
+        // SB setting is old code with lots of custom preferences and updating behavior.
+        // Added as a preference group and not a fragment so the preferences are searchable.
         SwitchPreference("morphe_sb_enabled", summary = true),
         PreferenceCategory(
             key = "morphe_sb_appearance_category",
@@ -147,7 +150,7 @@ val SponsorBlock = patch(
         PreferenceCategory(
             key = "morphe_sb_stats",
             sorting = PreferenceScreenPreference.Sorting.UNSORTED,
-            preferences = emptySet(),
+            preferences = emptySet(), // Preferences are added by custom class at runtime.
             tag = SponsorBlockStatsPreferenceCategory::class.java
         ),
         PreferenceCategory(
@@ -169,12 +172,17 @@ val SponsorBlock = patch(
         R.id.morphe_sb_create_segment_button
     )
 
+    // Hook the video time methods.
     videoTimeHooks.add { YouTubeSponsorBlockConfig.setVideoTime(it) }
-    hookBackgroundPlayVideoId(YouTubeSponsorBlockConfig::setCurrentVideoId)
+    videoIdHooks.add { YouTubeSponsorBlockConfig.setCurrentVideoId(it) }
 
+    // Seekbar drawing
+    var rectSetOnce = false
     ::seekbarOnDrawFingerprint.hookMethod {
         val sponsorBarRectField = ::SponsorBarRect.field
         before { param ->
+            // Get left and right of seekbar rectangle.
+            rectSetOnce = false
             YouTubeSponsorBlockConfig.setSeekbarRectangle(sponsorBarRectField.get(param.thisObject) as Rect)
         }
     }
@@ -185,11 +193,16 @@ val SponsorBlock = patch(
             "Landroid/graphics/RecordingCanvas;->drawCircle(FFFLandroid/graphics/Paint;)V"
     ::seekbarOnDrawFingerprint.hookMethod(
         scopedHook(
-            DexMethod("Ljava/lang/Math;->round(F)I").toMethod() to {
+            // Set the thickness of the segment.
+            DexMethod("Landroid/graphics/Rect;->set(IIII)V").toMethod() to {
                 after { param ->
-                    YouTubeSponsorBlockConfig.setSeekbarThickness(param.result as Int)
+                    // Only the first call to Rect.set from onDraw sets the segment thickness.
+                    if (rectSetOnce) return@after
+                    YouTubeSponsorBlockConfig.setSeekbarThickness((param.thisObject as Rect).height())
+                    rectSetOnce = true
                 }
             },
+            // Find the drawCircle call and draw the segment before it.
             DexMethod(drawCircle).toMethod() to {
                 before { param ->
                     YouTubeSponsorBlockConfig.drawSegmentTimeBars(
@@ -200,6 +213,7 @@ val SponsorBlock = patch(
         )
     )
 
+    // Change visibility of the buttons.
     initializeTopControl(
         ControlInitializer(
             R.id.morphe_sb_create_segment_button,
@@ -213,19 +227,17 @@ val SponsorBlock = patch(
         )
     )
 
-    AppendTimeFingerprint.hookMethod(
-        scopedHook(
-            DexMethod("Landroid/content/res/Resources;->getString(I[Ljava/lang/Object;)Ljava/lang/String;").toMember()
-        ) {
-            after { param ->
-                if (param.args[0] != total_time) return@after
-                param.result = YouTubeSponsorBlockConfig.appendTimeWithoutSegments(param.result.toString())
-            }
+    // Append the new time to the player layout.
+    AppendTimeFingerprint.hookMethod {
+        before {
+            it.args[2] = YouTubeSponsorBlockConfig.appendTimeWithoutSegments(it.args[2].toString())
         }
-    )
+    }
 
+    // Initialize the player controller.
     onCreateHook.add { YouTubeSponsorBlockConfig.initialize(it) }
 
+    // Initialize the SponsorBlock view.
     val controls_overlay_layout =
         ResourceUtils.getLayoutIdentifier("size_adjustable_youtube_controls_overlay")
     ::controlsOverlayFingerprint.hookMethod(scopedHook(DexMethod("Landroid/view/LayoutInflater;->inflate(ILandroid/view/ViewGroup;)Landroid/view/View;").toMember()) {
@@ -238,13 +250,11 @@ val SponsorBlock = patch(
         }
     })
 
-    AdProgressTextViewVisibilityFingerprint.hookMethod(
-        scopedHook(
-            DexMethod("Lcom/google/android/libraries/youtube/ads/player/ui/AdProgressTextView;->setVisibility(I)V").toMember()
-        ) {
-            before { param ->
-                YouTubeSponsorBlockConfig.setAdProgressTextVisibility(param.args[0] as Int)
-            }
+    AdProgressTextViewVisibilityFingerprint.hookMethod {
+        val adProgressTextField = ::AdProgressTextField.field
+        after {
+            val textView = adProgressTextField.get(it.thisObject) as TextView
+            YouTubeSponsorBlockConfig.setAdProgressTextVisibility(textView.visibility)
         }
-    )
+    }
 }
