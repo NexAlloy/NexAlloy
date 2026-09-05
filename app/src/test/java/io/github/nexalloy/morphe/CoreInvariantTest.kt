@@ -115,11 +115,11 @@ class CoreInvariantTest {
     }
 
     @Test
-    fun fingerprintAccessFlagsAreExactAndLegacyStringsContain() {
+    fun fingerprintAccessFlagsContainRequiredBitsAndLegacyStringsContain() {
         val accessMatcher = MethodMatcher().apply {
             accessFlags(AccessFlags.PUBLIC, AccessFlags.FINAL)
         }
-        assertEquals(MatchType.Equals, accessMatcher.modifiersMatcher!!.matchType)
+        assertEquals(MatchType.Contains, accessMatcher.modifiersMatcher!!.matchType)
         assertEquals(
             AccessFlags.PUBLIC.modifier or AccessFlags.FINAL.modifier,
             accessMatcher.modifiersMatcher!!.modifiers
