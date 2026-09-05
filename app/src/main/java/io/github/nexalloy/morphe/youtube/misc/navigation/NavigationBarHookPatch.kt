@@ -28,10 +28,12 @@ val NavigationBarHook = patch(
     description = "Hooks the active navigation or search bar.",
 ) {
 
+    // Hook the current navigation bar enum value. Note, the 'You' tab does not have an enum value.
     ::initializeButtonsFingerprint.hookMethod(scopedHook(::getNavigationEnumMethod.member) {
         after { NavigationBar.setLastAppNavigationEnum(it.result as Enum<*>) }
     })
 
+    // Hook the creation of navigation tab views.
     ::initializeButtonsFingerprint.hookMethod(scopedHook(::pivotBarButtonsCreateDrawableViewFingerprint.member) {
         after { NavigationBar.navigationTabLoaded(it.result as View) }
     })
@@ -59,44 +61,29 @@ val NavigationBarHook = patch(
             }
         })
 
-    val selectedTabFrames = ThreadLocal<MutableList<View?>>()
+    val selectedTab = ThreadLocal<View>()
     ::pivotBarButtonsViewSetSelectedFingerprint.hookMethod {
-        before {
-            val frames = selectedTabFrames.get()
-                ?: mutableListOf<View?>().also(selectedTabFrames::set)
-            frames.add(null)
-        }
-        after { param ->
-            val frames = selectedTabFrames.get()
-            val tab = if (!frames.isNullOrEmpty()) {
-                frames.removeAt(frames.lastIndex)
-            } else {
-                null
-            }
-            if (frames.isNullOrEmpty()) {
-                selectedTabFrames.remove()
-            }
-            if (param.hasThrowable()) return@after
-            tab?.let { NavigationBar.navigationTabSelected(it, true) }
-        }
+        before { selectedTab.remove() }
+        after { selectedTab.get()?.let { NavigationBar.navigationTabSelected(it, true) } }
     }
 
     ::pivotBarButtonsViewSetSelectedFingerprint.hookMethod(scopedHook(::pivotBarButtonsViewSetSelectedSubFingerprint.member) {
         after {
+            // `setSelect` dispatch to subviews, we need to wait for the root view.
             val isSelected = it.args[0] as Boolean
             if (isSelected) {
-                val frames = selectedTabFrames.get() ?: return@after
-                if (frames.isNotEmpty()) {
-                    frames[frames.lastIndex] = it.thisObject as View
-                }
+                selectedTab.set(it.thisObject as View)
             }
         }
     })
 
+    // Hook onto back button pressed.  Needed to fix race problem with
+    // Litho filtering based on navigation tab before the tab is updated.
     ::mainActivityOnBackPressedFingerprint.hookMethod {
         before { NavigationBar.onBackPressed(it.thisObject as Activity) }
     }
 
+    // Hook the search bar.
     DexMethod("Landroid/view/LayoutInflater;->inflate(ILandroid/view/ViewGroup;)Landroid/view/View;").hookMethod {
         after {
             val layout = Utils.getContext().resources.getResourceName(it.args[0] as Int)
@@ -106,6 +93,7 @@ val NavigationBarHook = patch(
         }
     }
 
+    // Hook the back button visibility.
     ToolbarLayoutFingerprint.hookMethod(scopedHook(DexMethod("Landroid/view/ViewGroup;->findViewById(I)Landroid/view/View;").toMember()) {
         val appCompatToolbarClass =
             classLoader.loadClass(AppCompatToolbarBackButtonFingerprint.dexMethod.className)
@@ -125,6 +113,7 @@ val NavigationBarHook = patch(
         }
     })
 
+    // Fix YT bug of notification tab missing the filled icon.
     val tabActivityCairo = ::navigationEnumClass.clazz.enumValueOf("TAB_ACTIVITY_CAIRO")
     if (tabActivityCairo != null) {
         ::getNavIconResIdFingerprint.dexMethodList.forEach {
