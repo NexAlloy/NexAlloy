@@ -3,18 +3,15 @@ package io.github.nexalloy.morphe.youtube.misc.playertype
 import io.github.nexalloy.morphe.AccessFlags
 import io.github.nexalloy.morphe.Fingerprint
 import io.github.nexalloy.morphe.Opcode
-import io.github.nexalloy.morphe.ResourceType
 import io.github.nexalloy.morphe.accessFlags
-import io.github.nexalloy.morphe.fieldAccess
 import io.github.nexalloy.morphe.findClassDirect
 import io.github.nexalloy.morphe.findFieldDirect
 import io.github.nexalloy.morphe.findMethodDirect
 import io.github.nexalloy.morphe.fingerprint
+import io.github.nexalloy.morphe.opcodes
 import io.github.nexalloy.morphe.parameters
-import io.github.nexalloy.morphe.resourceLiteral
 import io.github.nexalloy.morphe.resourceMappings
 import io.github.nexalloy.morphe.returns
-import io.github.nexalloy.morphe.string
 import org.luckypray.dexkit.query.enums.StringMatchType
 import org.luckypray.dexkit.result.FieldUsingType
 
@@ -40,59 +37,37 @@ val ReelPlayerViewField = findFieldDirect {
     reelWatchPagerFingerprint().declaredClass!!.fields.single { it.typeName.endsWith("ReelPlayerView") }
 }
 
-private val videoStateEnumFingerprint = fingerprint {
-    accessFlags(AccessFlags.STATIC, AccessFlags.CONSTRUCTOR)
-    parameters()
-    strings(
-        "NEW",
-        "PLAYING",
-        "PAUSED",
-        "RECOVERABLE_ERROR",
-        "UNRECOVERABLE_ERROR",
-        "ENDED"
-    )
-}
-
-private val controlsStateToStringFingerprint = fingerprint {
-    accessFlags(AccessFlags.PUBLIC, AccessFlags.FINAL)
-    returns("Ljava/lang/String;")
-    parameters()
-    strings("videoState", "isBuffering")
-}
-
 val ControlsState = findClassDirect {
-    controlsStateToStringFingerprint().declaredClass!!
-}
-
-private val VideoStateEnum = findClassDirect {
-    videoStateEnumFingerprint().declaredClass!!
+    findClass {
+        matcher {
+            usingStrings("controls can be in the buffering state only if in PLAYING or PAUSED video state")
+        }
+    }.single()
 }
 
 val videoStateFingerprint = findMethodDirect {
+    // TODO this is terrible
     val controlsStateClass = ControlsState(this).descriptor
-    val videoStateClass = VideoStateEnum(this).descriptor
-
-    Fingerprint(
-        accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
-        returnType = "V",
-        parameters = listOf(controlsStateClass),
-        filters = listOf(
-            fieldAccess(
-                definingClass = controlsStateClass,
-                type = videoStateClass
-            ),
-            resourceLiteral(ResourceType.STRING, "accessibility_play"),
-            resourceLiteral(ResourceType.STRING, "accessibility_pause")
-        )
-    )()
+    findMethod {
+        matcher {
+            accessFlags(AccessFlags.PUBLIC, AccessFlags.FINAL)
+            returns("V")
+            parameters(controlsStateClass)
+            opcodes(
+                Opcode.CONST_4,
+                Opcode.IF_EQZ,
+                Opcode.IF_EQZ,
+                Opcode.IGET_OBJECT, // obfuscated parameter field name
+            )
+        }
+    }.first()
 }
 
 val videoStateParameterField = findFieldDirect {
     videoStateFingerprint().let { method ->
         method.usingFields.distinct().single { field ->
-            field.usingType == FieldUsingType.Read &&
-                field.field.declaredClass == method.paramTypes[0] &&
-                field.field.type == VideoStateEnum(this)
+            // obfuscated parameter field name
+            field.usingType == FieldUsingType.Read && field.field.declaredClass == method.paramTypes[0]
         }.field
     }
 }
