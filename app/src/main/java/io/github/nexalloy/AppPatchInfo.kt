@@ -8,6 +8,7 @@ import io.github.nexalloy.revanced.googlephotos.GooglePhotosPatches
 import io.github.nexalloy.revanced.meta.MetaPatches
 import io.github.nexalloy.revanced.photomath.PhotomathPatches
 import io.github.nexalloy.revanced.strava.StravaPatches
+import io.github.nexalloy.revanced.telegram.TelegramPatches
 
 class AppPatchInfo(val appName: String, val packageName: String, val patches: Array<Patch>)
 
@@ -19,6 +20,9 @@ val appPatchConfigurations = listOf(
     AppPatchInfo("Photomath", "com.microblink.photomath", PhotomathPatches),
     AppPatchInfo("Instagram", "com.instagram.android", MetaPatches),
     AppPatchInfo("Threads", "com.instagram.barcelona", MetaPatches),
+    AppPatchInfo("Telegram", "org.telegram.messenger", TelegramPatches),
+    AppPatchInfo("Telegram (Direct)", "org.telegram.messenger.web", TelegramPatches),
+    AppPatchInfo("Telegram Beta", "org.telegram.messenger.beta", TelegramPatches),
     AppPatchInfo("Strava", "com.strava", StravaPatches),
     AppPatchInfo("AllTrails", "com.alltrails.alltrails", AllTrailsPatches),
 )

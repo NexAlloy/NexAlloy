@@ -5,5 +5,8 @@ com.google.android.apps.photos
 com.microblink.photomath
 com.instagram.android
 com.instagram.barcelona
+org.telegram.messenger
+org.telegram.messenger.web
+org.telegram.messenger.beta
 com.strava
 com.alltrails.alltrails

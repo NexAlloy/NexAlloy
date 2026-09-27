@@ -14,6 +14,9 @@
         <package android:name="com.microblink.photomath" />
         <package android:name="com.instagram.android" />
         <package android:name="com.instagram.barcelona" />
+        <package android:name="org.telegram.messenger" />
+        <package android:name="org.telegram.messenger.web" />
+        <package android:name="org.telegram.messenger.beta" />
         <package android:name="com.strava" />
         <package android:name="com.alltrails.alltrails" />
     </queries>
