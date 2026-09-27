@@ -14,6 +14,24 @@
         <package android:name="com.microblink.photomath" />
         <package android:name="com.instagram.android" />
         <package android:name="com.instagram.barcelona" />
+        <package android:name="com.facebook.orca" />
+        <package android:name="com.facebook.katana" />
+        <package android:name="com.twitter.android" />
+        <package android:name="org.telegram.messenger" />
+        <package android:name="org.telegram.messenger.web" />
+        <package android:name="org.telegram.messenger.beta" />
+        <package android:name="com.zhiliaoapp.musically" />
+        <package android:name="com.ss.android.ugc.trill" />
+        <package android:name="tv.twitch.android.app" />
+        <package android:name="com.spotify.music" />
+        <package android:name="com.duolingo" />
+        <package android:name="com.busuu.android.enc" />
+        <package android:name="com.intsig.camscanner" />
+        <package android:name="ch.protonvpn.android" />
+        <package android:name="org.swiftapps.swiftbackup" />
+        <package android:name="com.truecaller" />
+        <package android:name="com.nis.app" />
+        <package android:name="com.myprog.hexedit" />
         <package android:name="com.strava" />
         <package android:name="com.alltrails.alltrails" />
     </queries>

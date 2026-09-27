@@ -9,8 +9,10 @@ import io.github.nexalloy.morphe.music.misc.debugging.EnableDebugging
 import io.github.nexalloy.morphe.music.misc.privacy.SanitizeSharingLinks
 import io.github.nexalloy.morphe.music.misc.settings.SettingsHook
 import io.github.nexalloy.morphe.shared.misc.CheckRecycleBitmapMediaSession
+import io.github.nexalloy.revanced.shared.restrictions.AllowScreenCapture
 
 val YTMusicPatches = arrayOf(
+    AllowScreenCapture,
     ExtensionResourceHook,
     BackgroundPlayback,
     HideUpgradeButton,

@@ -31,9 +31,9 @@ import io.github.nexalloy.morphe.youtube.video.audio.ForceOriginalAudio
 import io.github.nexalloy.morphe.youtube.video.codecs.DisableVideoCodecs
 import io.github.nexalloy.morphe.youtube.video.quality.VideoQuality
 import io.github.nexalloy.morphe.youtube.video.speed.PlaybackSpeed
+import io.github.nexalloy.revanced.shared.restrictions.AllowScreenCapture
 import io.github.nexalloy.patch
 import io.github.nexalloy.atLast
-import io.github.nexalloy.morphe.youtube.layout.startpage.changeStartPagePatch
 import org.luckypray.dexkit.wrap.DexMethod
 
 val ExtensionHook = patch(name = "<ExtensionHook>") {
@@ -73,6 +73,7 @@ val FeatureOverride = patch {
 }
 
 val YouTubePatches = arrayOf(
+    AllowScreenCapture,
     ExtensionHook,
     BackgroundPlayback,
     SanitizeSharingLinks,
@@ -95,7 +96,6 @@ val YouTubePatches = arrayOf(
     AlternativeThumbnailsPatch,
     BypassImageRegionRestrictionsPatch,
     CheckRecycleBitmapMediaSession,
-    changeStartPagePatch,
     // make sure settingsHook at end to build preferences
     SettingsHook,
     FeatureOverride
