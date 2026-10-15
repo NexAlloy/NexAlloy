@@ -54,7 +54,9 @@ val BackgroundPlayback = patch(
     }
 
     // Enable background playback option in YouTube settings
-    ::backgroundPlaybackSettingsSubFingerprint.hookMethod(returnConstant(true))
+    runCatching {
+        ::backgroundPlaybackSettingsSubFingerprint.hookMethod(returnConstant(true))
+    }
 
     // Prevents playback from resuming if it was interrupted from the notification
     // and the app was subsequently brought to the foreground.

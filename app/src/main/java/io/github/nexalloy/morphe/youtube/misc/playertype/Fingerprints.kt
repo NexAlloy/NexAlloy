@@ -5,23 +5,36 @@ import io.github.nexalloy.morphe.Fingerprint
 import io.github.nexalloy.morphe.InstructionLocation.MatchAfterWithin
 import io.github.nexalloy.morphe.Opcode
 import io.github.nexalloy.morphe.ResourceType
+import io.github.nexalloy.morphe.accessFlags
 import io.github.nexalloy.morphe.fieldAccess
 import io.github.nexalloy.morphe.findFieldDirect
 import io.github.nexalloy.morphe.findMethodDirect
 import io.github.nexalloy.morphe.opcode
 import io.github.nexalloy.morphe.resourceLiteral
+import io.github.nexalloy.morphe.returns
 import io.github.nexalloy.morphe.string
 import org.luckypray.dexkit.query.enums.StringMatchType
 import org.luckypray.dexkit.result.FieldUsingType
 
-object PlayerTypeFingerprint : Fingerprint(
-    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
-    returnType = "V",
-    custom = {
-        addParamType { superClass { descriptor = "Ljava/lang/Enum;" } }
-        declaredClass { className(".YouTubePlayerOverlaysLayout", StringMatchType.EndsWith) }
-    }
-)
+val playerTypeFingerprint = findMethodDirect {
+    findMethod {
+        matcher {
+            accessFlags(AccessFlags.PUBLIC, AccessFlags.FINAL)
+            returns("V")
+            paramCount = 1
+            addParamType { superClass { descriptor = "Ljava/lang/Enum;" } }
+            declaredClass { className(".YouTubePlayerOverlaysLayout", StringMatchType.EndsWith) }
+        }
+    }.firstOrNull() ?: findMethod {
+        matcher {
+            accessFlags(AccessFlags.PUBLIC, AccessFlags.FINAL)
+            returns("V")
+            paramCount = 1
+            addParamType { superClass { descriptor = "Ljava/lang/Enum;" } }
+            declaredClass { className(".YouTubePlayerViewNotForReflection", StringMatchType.EndsWith) }
+        }
+    }.first()
+}
 
 internal object ReelWatchPagerFingerprint : Fingerprint(
     accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),

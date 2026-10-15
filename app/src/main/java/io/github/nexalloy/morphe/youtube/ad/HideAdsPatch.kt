@@ -101,16 +101,18 @@ val HideAds = patch(
     // Hide player overlay view. This can be hidden with a regular litho filter
     // but an empty space remains.
 
-    PlayerOverlayTimelyShelfFingerprint.hookMethod {
-        val playerOverlayEventClass = ::PlayerOverlayEventType.clazz
-        val playerOverlayIdField = ::PlayerOverlayIdField.field
-        before {
-            val obj = it.args[0]
-            if (playerOverlayEventClass.isInstance(obj)) {
-                val id = playerOverlayIdField.get(obj) as String
+    runCatching {
+        PlayerOverlayTimelyShelfFingerprint.hookMethod {
+            val playerOverlayEventClass = ::PlayerOverlayEventType.clazz
+            val playerOverlayIdField = ::PlayerOverlayIdField.field
+            before {
+                val obj = it.args[0]
+                if (playerOverlayEventClass.isInstance(obj)) {
+                    val id = playerOverlayIdField.get(obj) as String
 
-                if (!AdsFilter.allowAds(id == "player_overlay_timely_shelf"))
-                    it.result = null
+                    if (!AdsFilter.allowAds(id == "player_overlay_timely_shelf"))
+                        it.result = null
+                }
             }
         }
     }

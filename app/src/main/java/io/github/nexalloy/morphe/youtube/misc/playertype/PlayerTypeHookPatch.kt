@@ -9,7 +9,7 @@ import io.github.nexalloy.patch
 val PlayerTypeHook = patch(
     description = "Hook to get the current player type and video playback state.",
 ) {
-    PlayerTypeFingerprint.hookMethod {
+    ::playerTypeFingerprint.hookMethod {
         before { param ->
             PlayerTypeHookPatch.setPlayerType(param.args[0] as Enum<*>)
         }
