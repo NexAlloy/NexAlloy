@@ -155,10 +155,10 @@ import io.github.nexalloy.morphe.Opcode.XOR_INT_LIT16
 import io.github.nexalloy.morphe.Opcode.XOR_INT_LIT8
 import io.github.nexalloy.morphe.Opcode.XOR_LONG
 import io.github.nexalloy.morphe.Opcode.XOR_LONG_2ADDR
+import java.util.EnumSet
 import org.luckypray.dexkit.result.FieldData
 import org.luckypray.dexkit.result.InstructionData
 import org.luckypray.dexkit.result.MethodData
-import java.util.EnumSet
 
 @Suppress("NOTHING_TO_INLINE")
 inline fun setExtensionIsPatchIncluded(extension: Class<*>){
@@ -357,6 +357,10 @@ fun MethodData.findFieldFromToString(fieldName: String) : FieldData {
     val methodUsageIndex = findInstructionIndexFromToString(fieldName, true)
     return instructions[methodUsageIndex].fieldRef!!
 }
+
+/** Resolves the getter used for a named toString() component. */
+fun MethodData.findMethodFromToString(fieldName: String): MethodData =
+    instructions[findInstructionIndexFromToString(fieldName, false)].methodRef!!
 
 /**
  * Get the index of the first [Instruction] that matches the predicate, starting from [startIndex].

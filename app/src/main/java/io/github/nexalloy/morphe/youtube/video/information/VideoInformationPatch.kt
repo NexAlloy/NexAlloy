@@ -135,6 +135,8 @@ class PlaybackSpeedMenu(
     }
 }
 
+private lateinit var qualityFormatIds: java.lang.reflect.Field
+
 internal class VideoQualityProxy(val quality: Any) : VideoInformation.VideoQualityInterface {
     private val qualityNameField = quality.javaClass.findFirstFieldByExactType(String::class.java)
     private val resolutionField = quality.javaClass.findFirstFieldByExactType(Int::class.java)
@@ -143,6 +145,8 @@ internal class VideoQualityProxy(val quality: Any) : VideoInformation.VideoQuali
     override fun patch_getResolution(): Int = VideoInformation.fixVideoQualityResolution(
         patch_getQualityName(), resolutionField.getInt(quality)
     )
+    override fun patch_getFormatIds(): Collection<*> =
+        qualityFormatIds.get(quality) as Collection<*>
     override fun toString(): String = quality.toString()
     override fun equals(other: Any?): Boolean = other is VideoQualityProxy && quality == other.quality
     override fun hashCode(): Int = quality.hashCode()
@@ -158,6 +162,8 @@ val VideoInformationPatch = patch(
         textComponentPatch,
         VersionCheck,
     )
+
+    qualityFormatIds = ::videoQualityFormatIdsField.field
 
     //region playerController
     PlayerInitFingerprint.apply {

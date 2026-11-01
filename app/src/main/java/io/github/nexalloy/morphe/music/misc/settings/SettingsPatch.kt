@@ -8,6 +8,7 @@ import app.morphe.extension.shared.Logger
 import app.morphe.extension.shared.ResourceUtils
 import app.morphe.extension.shared.Utils
 import app.morphe.extension.shared.settings.preference.ImportExportPreference
+import app.morphe.extension.shared.settings.preference.SeekBarPreference
 import app.morphe.extension.shared.settings.preference.about.MorpheAboutPreference
 import de.robv.android.xposed.XC_MethodReplacement
 import io.github.nexalloy.R
@@ -57,6 +58,11 @@ val SettingsHook = patch(
     )
 
     PreferenceScreen.MISC.addPreferences(
+        NonInteractivePreference(
+            key = "morphe_settings_new_indicator_days",
+            tag = SeekBarPreference::class.java,
+            selectable = true
+        ),
         NonInteractivePreference(
             key = "morphe_music_app_language",
             summaryKey = null,

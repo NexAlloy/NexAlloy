@@ -12,10 +12,15 @@ import io.github.nexalloy.morphe.youtube.interaction.downloads.ProtobufClassPars
 import io.github.nexalloy.morphe.youtube.misc.playertype.PlayerTypeHook
 import io.github.nexalloy.morphe.youtube.misc.playservice.VersionCheck
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_17_or_greater
+import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_43_or_greater
 import io.github.nexalloy.morphe.youtube.shared.VideoQualityChangedFingerprint
 import io.github.nexalloy.morphe.youtube.shared.VideoQualityReceiver
 import io.github.nexalloy.morphe.youtube.shared.hookVideoIntent
 import io.github.nexalloy.morphe.youtube.shared.openVideoIntentPatch
+import io.github.nexalloy.morphe.youtube.shared.playbackStartVideoIdMethod
+import io.github.nexalloy.morphe.youtube.video.format.currentFormatItagMethod
+import io.github.nexalloy.morphe.youtube.video.format.hookAdaptiveFormat
+import io.github.nexalloy.morphe.youtube.video.format.videoFormatPatch
 import io.github.nexalloy.morphe.youtube.video.information.VideoInformationPatch
 import io.github.nexalloy.morphe.youtube.video.information.VideoQualityProxy
 import io.github.nexalloy.morphe.youtube.video.information.setQualityMenuIndexMethod
@@ -25,6 +30,7 @@ import io.github.nexalloy.scopedHook
 val RememberVideoQuality = patch {
     dependsOn(
         VideoInformationPatch,
+        videoFormatPatch,
         PlayerTypeHook,
         openVideoIntentPatch,
         VersionCheck,
@@ -66,6 +72,18 @@ val RememberVideoQuality = patch {
             val oldValue = initialResolutionField.get(it.thisObject)
             val newValue = RememberVideoQualityPatch.getInitialVideoQuality(oldValue as Optional<*>?)
             initialResolutionField.set(it.thisObject, newValue)
+        }
+    }
+
+    // The player reloads with its original parameters, so restore the quality for its own video ID.
+    val playerField = ::playbackStartPlayerField.field
+    val getDescriptor = ::playerPlaybackStartDescriptorMethod.method
+    val getVideoId = ::playbackStartVideoIdMethod.method
+    ::playbackStartInitialResolutionMethod.hookMethod {
+        after {
+            val descriptor = playerField.get(it.thisObject)?.let { player -> getDescriptor.invoke(player) }
+            val id = descriptor?.let { value -> getVideoId.invoke(value) as String? }
+            it.result = RememberVideoQualityPatch.getPlaybackStartVideoQuality(it.result as Int?, id)
         }
     }
 
@@ -136,9 +154,12 @@ val RememberVideoQuality = patch {
     hookVideoIntent { map, videoId -> RememberVideoQualityPatch.onVideoIntentLoaded(map, videoId) }
 
     // Inject a call to remember the selected quality for Shorts.
+    val menuQualities = ::videoQualityMenuQualitiesField.field
     VideoQualityItemOnClickFingerprint.hookMethod {
         before { param ->
-            RememberVideoQualityPatch.userChangedShortsQuality(param.args[2] as Int)
+            val qualities = (menuQualities.get(param.thisObject) as Array<*>?)
+                ?.map { VideoQualityProxy(it!!) }?.toTypedArray()
+            param.args[2] = RememberVideoQualityPatch.userChangedShortsQuality(qualities, param.args[2] as Int)
         }
         after { RememberVideoQualityPatch.clearShortsMenuSelectedQuality() }
     }
@@ -163,9 +184,20 @@ val RememberVideoQuality = patch {
     // The quality object is used, as its name is needed to get the fixed resolution.
     VideoQualityChangedFingerprint.hookMethod(scopedHook(::VideoQualityReceiver.member) {
         before { param ->
-            RememberVideoQualityPatch.userChangedQuality(VideoQualityProxy(param.args[0]))
+            param.args[0] = (RememberVideoQualityPatch.userChangedQuality(VideoQualityProxy(param.args[0])) as VideoQualityProxy).quality
         }
     })
+
+    hookAdaptiveFormat { id, formats -> RememberVideoQualityPatch.setVideoFormats(id, formats) }
+    val currentFormat = ::currentVideoFormatField.field
+    val getItag = ::currentFormatItagMethod.method
+    ::currentVideoFormatConstructor.hookMethod {
+        after {
+            currentFormat.get(it.thisObject)?.let { format ->
+                RememberVideoQualityPatch.setCurrentVideoFormat(getItag.invoke(format) as Int)
+            }
+        }
+    }
 
     // If this flag is enabled, Shorts restart whenever the quality changes.
     // The restart uses the initial quality of the Short, so the quality selected by the user is lost.
@@ -182,5 +214,47 @@ val RememberVideoQuality = patch {
         AsyncMediaFetchControllerSetVideoFormatsFingerprint.hookMethod {
             before { it.args[1] = RememberVideoQualityPatch.clearVideoBufferOnQualityChange(it.args[1] as Boolean) }
         }
+
+        val videoTrack = ::videoTrackTypeField.field.get(null)
+        val stopRequests = ::stopMediaRequestsMethod.method
+        val bufferManager = ::playbackBufferManagerField.field
+        val discardAfter = BufferManagerDiscardBufferAfterSegmentFingerprint.method
+        val getMedia = BufferManagerGetMediaSegmentHolderFingerprint.method
+        val firstEnd = ::firstSegmentEndTimeField.field
+        val discardBefore = if (is_21_43_or_greater) SampleHolderDiscardBufferBeforeSegmentFingerprint.method
+            else SampleHolderDiscardBufferBeforeSegmentLegacyFingerprint.method
+        fun discardBeforeSegment(media: Any, time: Long): Boolean {
+            val before = firstEnd.getLong(media)
+            if (is_21_43_or_greater) discardBefore.invoke(media, time, time, 0L)
+            else discardBefore.invoke(media, time)
+            return before != firstEnd.getLong(media)
+        }
+        PlaybackControllerClearBufferFingerprint.hookMethod {
+            before {
+                if (it.args[0] != videoTrack) return@before
+                val time = RememberVideoQualityPatch.getClearVideoBufferTime()
+                if (time < 0) return@before
+                stopRequests.invoke(it.thisObject)
+                val manager = bufferManager.get(it.thisObject)
+                discardAfter.invoke(manager, videoTrack, time)
+                discardBeforeSegment(getMedia.invoke(manager, videoTrack)!!, time)
+                it.result = null
+            }
+        }
+
+        // The inner call is reached only after the media source's live-stream time checks.
+        val sourceManager = ::mediaSourceBufferManagerField.field
+        MediaPushMediaSourceDiscardBufferFingerprint.hookMethod(scopedHook(::mediaSourcePrepareDiscardMethod.method) {
+            after {
+                if (innerDepth == 0 && !it.hasThrowable() && it.thisObject === outerParam.thisObject &&
+                    RememberVideoQualityPatch.shouldClearPlayedVideoSegment()) {
+                    val manager = sourceManager.get(outerParam.thisObject)
+                    val media = getMedia.invoke(manager, videoTrack)!!
+                    if (discardBeforeSegment(media, outerParam.args[0] as Long)) {
+                        RememberVideoQualityPatch.onPlayedVideoSegmentCleared()
+                    }
+                }
+            }
+        })
     }
 }

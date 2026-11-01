@@ -3,11 +3,14 @@ package io.github.nexalloy.morphe.youtube.misc.settings
 import android.app.Activity
 import app.morphe.extension.shared.ResourceUtils
 import app.morphe.extension.shared.settings.preference.ImportExportPreference
+import app.morphe.extension.shared.settings.preference.SeekBarPreference
 import app.morphe.extension.shared.settings.preference.about.MorpheAboutPreference
+import app.morphe.extension.youtube.patches.NativeSnackbarPatch
 import app.morphe.extension.youtube.settings.YouTubeActivityHook
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XC_MethodReplacement
 import io.github.nexalloy.R
+import io.github.nexalloy.bindProxy
 import io.github.nexalloy.hookMethod
 import io.github.nexalloy.invokeOriginalMethod
 import io.github.nexalloy.morphe.shared.misc.initialization.initializationPatch
@@ -17,9 +20,14 @@ import io.github.nexalloy.morphe.shared.misc.settings.preference.InputType
 import io.github.nexalloy.morphe.shared.misc.settings.preference.NonInteractivePreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.PreferenceScreenPreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.PreferenceScreenPreference.Sorting
+import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.TextPreference
 import io.github.nexalloy.morphe.shared.settings.preferences
+import io.github.nexalloy.morphe.youtube.interaction.downloads.GeneratedRegistryFingerprint
+import io.github.nexalloy.morphe.youtube.interaction.downloads.ProtobufClassParseByteArrayWithRegistryFingerprint
 import io.github.nexalloy.morphe.youtube.layout.buttons.overlay.PlayerOverlayButtonsSettings
+import io.github.nexalloy.morphe.youtube.misc.fix.accessibility.fixAccessibilityPatch
+import io.github.nexalloy.morphe.youtube.misc.fix.padding.fixPagePaddingPatch
 import io.github.nexalloy.patch
 
 @Suppress("UNREACHABLE_CODE")
@@ -28,6 +36,8 @@ val SettingsHook = patch(
 ) {
     dependsOn(
         PlayerOverlayButtonsSettings,
+        fixAccessibilityPatch,
+        fixPagePaddingPatch,
         initializationPatch()
     )
 
@@ -84,6 +94,24 @@ val SettingsHook = patch(
         }
     }
 
+    val executeCommand = ::executeSnackbarCommandMethod.method
+    val defaultCommand = ::snackbarCommandDefaultInstance.field.get(null)
+    val parseCommand = ProtobufClassParseByteArrayWithRegistryFingerprint.method
+    val registry = GeneratedRegistryFingerprint.method.invoke(null)
+    CommandRouterConstructorFingerprint.hookMethod {
+        after {
+            val router = it.thisObject
+            val adapter = object : NativeSnackbarPatch.CommandRouter {
+                override fun patch_executeCommand(command: ByteArray) {
+                    val proto = parseCommand.invoke(null, defaultCommand, command, registry)
+                    executeCommand.invoke(router, proto, HashMap<Any, Any>())
+                }
+            }
+            router.bindProxy(adapter)
+            NativeSnackbarPatch.setCommandRouter(adapter, it.args[0] as Activity)
+        }
+    }
+
     // Add an "About" preference to the top.
     preferences += NonInteractivePreference(
         key = "morphe_settings_screen_00_about",
@@ -106,7 +134,16 @@ val SettingsHook = patch(
 //        SwitchPreference("morphe_show_menu_icons")
 //    )
 
+    PreferenceScreen.GENERAL.addPreferences(
+        SwitchPreference("morphe_native_snackbar", summary = true)
+    )
+
     PreferenceScreen.MISC.addPreferences(
+        NonInteractivePreference(
+            key = "morphe_settings_new_indicator_days",
+            tag = SeekBarPreference::class.java,
+            selectable = true
+        ),
         TextPreference(
             key = null,
             titleKey = "morphe_pref_import_export_title",

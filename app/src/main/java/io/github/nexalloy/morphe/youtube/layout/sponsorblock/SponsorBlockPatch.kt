@@ -30,6 +30,7 @@ import io.github.nexalloy.morphe.shared.misc.settings.preference.PreferenceScree
 import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.TextPreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.screenInfoPreferenceCategory
+import io.github.nexalloy.morphe.youtube.interaction.downloads.OfflineVideoEndpointFingerprint
 import io.github.nexalloy.morphe.youtube.misc.playercontrols.ControlInitializer
 import io.github.nexalloy.morphe.youtube.misc.playercontrols.LegacyPlayerControls
 import io.github.nexalloy.morphe.youtube.misc.playercontrols.addTopControl
@@ -131,7 +132,8 @@ val SponsorBlock = patch(
             key = "morphe_sb_general",
             sorting = PreferenceScreenPreference.Sorting.UNSORTED,
             preferences = setOf(
-                SwitchPreference("morphe_sb_toast_on_connection_error", summary = true),
+                SwitchPreference("morphe_sb_offline_segments", summary = true),
+                    SwitchPreference("morphe_sb_toast_on_connection_error", summary = true),
                 SwitchPreference("morphe_sb_track_skip_count", summary = true),
                 TextPreference(
                     key = "morphe_sb_min_segment_duration",
@@ -269,6 +271,10 @@ val SponsorBlock = patch(
             val textView = adProgressTextField.get(it.thisObject) as TextView
             YouTubeSponsorBlockConfig.setAdProgressTextVisibility(textView.visibility)
         }
+    }
+
+    OfflineVideoEndpointFingerprint.hookMethod {
+        before { YouTubeSponsorBlockConfig.offlineVideoAction(it.args[2] as String, it.args[3] as Enum<*>) }
     }
 
     // FIXME: Skip buttons do not show in new player controls layout.
