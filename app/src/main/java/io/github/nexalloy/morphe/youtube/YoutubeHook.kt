@@ -23,6 +23,7 @@ import io.github.nexalloy.morphe.youtube.interaction.postimages.postImageDownloa
 import io.github.nexalloy.morphe.youtube.interaction.posttranslate.postTranslatePatch
 import io.github.nexalloy.morphe.youtube.interaction.seekbar.seekbarPatch
 import io.github.nexalloy.morphe.youtube.interaction.swipecontrols.SwipeControls
+import io.github.nexalloy.morphe.youtube.layout.branding.header.changeHeaderPatch
 import io.github.nexalloy.morphe.youtube.layout.buttons.action.HideVideoActionButtons
 import io.github.nexalloy.morphe.youtube.layout.buttons.navigation.NavigationBar
 import io.github.nexalloy.morphe.youtube.layout.captions.AutoCaptions
@@ -96,6 +97,7 @@ val FeatureOverride = patch {
 val YouTubePatches = arrayOf(
     ExtensionHook,
     BackgroundPlayback,
+    changeHeaderPatch,
     SanitizeSharingLinks,
     HideAds,
     SponsorBlock,
