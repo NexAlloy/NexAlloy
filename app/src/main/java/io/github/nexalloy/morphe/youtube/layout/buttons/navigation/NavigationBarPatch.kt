@@ -35,6 +35,7 @@ import io.github.nexalloy.morphe.youtube.misc.navigation.addBottomBarContainerHo
 import io.github.nexalloy.morphe.youtube.misc.navigation.hookNavigationButtonCreated
 import io.github.nexalloy.morphe.youtube.misc.playservice.VersionCheck
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_20_31_or_greater
+import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_23_or_greater
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_35_or_greater
 import io.github.nexalloy.morphe.youtube.misc.settings.PreferenceScreen
 import io.github.nexalloy.patch
@@ -120,6 +121,24 @@ val NavigationBar = patch(
             preferences = navPreferences
         )
     )
+
+    // Some pages have their own toolbar, whose buttons are created with their renderer.
+    val toolbarConstructor = ::toolbarButtonConstructor.constructor
+    val countIdsIndex = toolbarConstructor.parameterTypes.indexOfFirst { it == List::class.java }
+    check(countIdsIndex > 0)
+    val rendererIndex = countIdsIndex - 1
+    toolbarConstructor.hookMethod {
+        before {
+            val renderer = it.args[rendererIndex] ?: return@before
+            val updated = NavigationBarPatch.swapToolbarNotificationButton(
+                renderer, renderer.callMethod("toByteArray") as ByteArray
+            )
+            it.args[rendererIndex] = updated
+            @Suppress("UNCHECKED_CAST")
+            val countIds = it.args[countIdsIndex] as List<String>
+            it.args[countIdsIndex] = NavigationBarPatch.getToolbarButtonCountIds(updated, countIds)
+        }
+    }
 
     // Swap create with notifications button.
     addOSNameHook(
@@ -249,10 +268,10 @@ val NavigationBar = patch(
     // disableAutoHidingNavigationBar
 
     if (is_20_31_or_greater) {
-        listOf(
-            AutoHideNavigationBarOnFeedScrollingFingerprint,
-            AutoHideNavigationBarOnDismissMiniplayerFingerprint,
-        ).forEach {
+        buildList {
+            add(AutoHideNavigationBarOnFeedScrollingFingerprint)
+            if (is_21_23_or_greater) add(AutoHideNavigationBarOnDismissMiniplayerFingerprint)
+        }.forEach {
             it.hookMethod {
                 before { param ->
                     if (NavigationBarPatch.disableAutoHidingNavigationBar()) {

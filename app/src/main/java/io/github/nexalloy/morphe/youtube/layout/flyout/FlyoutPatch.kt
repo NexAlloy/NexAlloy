@@ -6,17 +6,15 @@ import android.widget.TextView
 import app.morphe.extension.shared.ResourceUtils
 import app.morphe.extension.youtube.patches.utils.FlyoutUtils
 import io.github.nexalloy.hookMethod
-import io.github.nexalloy.morphe.shared.misc.proto.hookElement
 import io.github.nexalloy.morphe.youtube.layout.hide.general.ContextualMenuItemBuilderFingerprint
 import io.github.nexalloy.morphe.youtube.layout.hide.general.contextualMenuItemTextViewField
 import io.github.nexalloy.morphe.youtube.misc.proto.elementProtoParserHookPatch
-import io.github.nexalloy.morphe.youtube.shared.hookVideoStarted
 import io.github.nexalloy.morphe.youtube.shared.startVideoInformerPatch
 import io.github.nexalloy.morphe.youtube.video.information.VideoInformationPatch
 import io.github.nexalloy.patch
 import io.github.nexalloy.scopedHook
-import org.luckypray.dexkit.wrap.DexMethod
 import java.lang.reflect.Field
+import org.luckypray.dexkit.wrap.DexMethod
 
 lateinit var protocolBufferField: Field
 lateinit var protocolBufferFieldClass: Class<*>
@@ -76,10 +74,6 @@ val flyoutPatch = patch(
                 })
         )
     }
-
-    hookVideoStarted(FlyoutUtils::resetVideoMarkedAsForKids)
-
-    hookElement(FlyoutUtils::onCommentsLoaded)
 
     // Track and initialize flyout menu buttons generically.
     val getSubMessageMethod = ::getSubMessageReference.method

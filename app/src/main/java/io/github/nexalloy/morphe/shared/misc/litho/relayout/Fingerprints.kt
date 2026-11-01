@@ -10,6 +10,7 @@ import io.github.nexalloy.morphe.fieldAccess
 import io.github.nexalloy.morphe.findFieldDirect
 import io.github.nexalloy.morphe.methodCall
 
+internal const val COMPONENT_TEXT_CONTENT = "Lcom/facebook/litho/TextContent;"
 internal const val COMPONENT_HOST_CLASS = "Lcom/facebook/litho/ComponentHost;"
 internal const val COMPONENT_TREE_CLASS = "Lcom/facebook/litho/ComponentTree;"
 

@@ -17,6 +17,7 @@ import io.github.nexalloy.morphe.findMethodListDirect
 import io.github.nexalloy.morphe.literal
 import io.github.nexalloy.morphe.methodCall
 import io.github.nexalloy.morphe.opcode
+import io.github.nexalloy.morphe.opcodeEnum
 import io.github.nexalloy.morphe.string
 import io.github.nexalloy.morphe.youtube.layout.hide.shorts.ShortsBottomBarContainerFingerprint
 import java.lang.reflect.Modifier
@@ -114,28 +115,25 @@ internal object AutoHideNavigationBarOnFeedScrollingFingerprint : Fingerprint(
     )
 )
 
+/**
+ * Moves the navigation bar out of the screen while the miniplayer is dragged to be dismissed.
+ * Other listeners of the same drag cancel autoplay, so only the navigation bar listener is hooked.
+ * Before 21.23 the method of the navigation bar for this drag is empty.
+ */
+@RequireAppVersion(minVersion = "21.23.000")
 internal object AutoHideNavigationBarOnDismissMiniplayerFingerprint : Fingerprint(
-    accessFlags = listOf(AccessFlags.PRIVATE, AccessFlags.FINAL),
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
     returnType = "V",
     parameters = listOf("F"),
     filters = listOf(
-        literal(2),
-        methodCall(
-            smali = "Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;",
-            location = MatchAfterWithin(5)
-        ),
-        methodCall(
-            smali = "Ljava/util/Set;->iterator()Ljava/util/Iterator;",
-            location = MatchAfterWithin(5)
-        ),
-        methodCall(
-            smali = "Ljava/util/Iterator;->hasNext()Z",
-            location = MatchAfterWithin(5)
-        ),
-        methodCall(
-            smali = "Ljava/util/Iterator;->next()Ljava/lang/Object;",
-            location = MatchAfterWithin(5)
-        )
+        opcode(Opcode.IGET),
+        opcode(Opcode.IGET, location = MatchAfterImmediately()),
+        opcode(Opcode.ADD_INT_2ADDR, location = MatchAfterImmediately()),
+        opcode(Opcode.INT_TO_FLOAT, location = MatchAfterImmediately()),
+        opcode(Opcode.MUL_FLOAT_2ADDR, location = MatchAfterImmediately()),
+        opcode(Opcode.IPUT, location = MatchAfterImmediately()),
+        opcode(Opcode.INVOKE_VIRTUAL, location = MatchAfterImmediately()),
+        opcode(Opcode.RETURN_VOID, location = MatchAfterImmediately())
     )
 )
 
@@ -282,4 +280,18 @@ internal val pivotBarIconTypeLookupMethod = findMethodDirect {
         returnType = iconType,
         parameters = listOf("I")
     ).match().method
+}
+
+internal val toolbarButtonConstructor = findMethodDirect {
+    val toolbar = io.github.nexalloy.morphe.youtube.misc.toolbar.ToolBarButtonFingerprint.match()
+    val instructions = toolbar.method.instructions
+    val actionIndex = instructions.indexOfFirst { it.methodRef?.name == "setShowAsAction" }
+    val rendererType = instructions.drop(actionIndex).first {
+        it.opcodeEnum == Opcode.IGET_OBJECT
+    }.fieldRef!!.type!!
+    toolbar.method.declaredClass!!.methods.single { method ->
+        method.name == "<init>" && method.paramTypes.withIndex().any { (index, type) ->
+            type == rendererType && method.paramTypes.getOrNull(index + 1)?.descriptor == "Ljava/util/List;"
+        }
+    }
 }

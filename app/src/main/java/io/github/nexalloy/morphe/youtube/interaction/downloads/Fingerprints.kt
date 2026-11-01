@@ -9,11 +9,12 @@ import io.github.nexalloy.morphe.anyInstruction
 import io.github.nexalloy.morphe.checkCast
 import io.github.nexalloy.morphe.fieldAccess
 import io.github.nexalloy.morphe.findFieldDirect
-import io.github.nexalloy.morphe.findMethodListDirect
 import io.github.nexalloy.morphe.findMethodDirect
+import io.github.nexalloy.morphe.findMethodListDirect
 import io.github.nexalloy.morphe.literal
 import io.github.nexalloy.morphe.methodCall
 import io.github.nexalloy.morphe.opcode
+import io.github.nexalloy.morphe.opcodeEnum
 import io.github.nexalloy.morphe.string
 import java.lang.reflect.Modifier
 import org.luckypray.dexkit.DexKitBridge
@@ -276,4 +277,21 @@ internal val updateOfflineVideoPolicyMethods = findMethodListDirect {
 
 internal val offlineStateDefaultInstance = findFieldDirect {
     defaultInstance(updateOfflineVideoPolicyMethods().first().paramTypes[2])
+}
+
+/** Reads the interaction logger interface from the context of commands. */
+internal val interactionLoggerClass = io.github.nexalloy.morphe.findClassDirect {
+    findMethod {
+        matcher { usingStrings("com.google.android.libraries.youtube.logging.interaction_logger") }
+    }.flatMap { method ->
+        method.instructions.zipWithNext().mapNotNull { (key, type) ->
+            if (key.string == "com.google.android.libraries.youtube.logging.interaction_logger" &&
+                type.opcodeEnum == Opcode.CONST_CLASS) type.classRef else null
+        }
+    }.distinctBy { it.descriptor }.single()
+}
+
+internal val noOpInteractionLogger = findFieldDirect {
+    val type = interactionLoggerClass()
+    type.fields.single { Modifier.isStatic(it.modifiers) && it.type == type }
 }

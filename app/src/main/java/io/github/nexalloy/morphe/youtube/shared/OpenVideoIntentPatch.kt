@@ -5,6 +5,7 @@ import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_20_or_greater
 import io.github.nexalloy.patch
 import io.github.nexalloy.scopedHook
 
+private val shortsIntentHooks = mutableListOf<(Map<Any, Any>, String) -> Unit>()
 private val videoIntentHooks = mutableListOf<(Map<Any, Any>, String) -> Unit>()
 
 val openVideoIntentPatch = patch(
@@ -30,11 +31,16 @@ val openVideoIntentPatch = patch(
                 @Suppress("UNCHECKED_CAST")
                 val map = it.args[1] as Map<Any, Any>
                 val videoId = getVideoId.invoke(it.args[0]) as String
-                videoIntentHooks.forEach { callback -> callback(map, videoId) }
+                shortsIntentHooks.forEach { callback -> callback(map, videoId) }
             }
         }
 }
 
-fun hookVideoIntent(callback: (Map<Any, Any>, String) -> Unit) {
-    videoIntentHooks += callback
+fun hookVideoIntent(
+    detectVideo: Boolean = true,
+    detectShorts: Boolean = true,
+    callback: (Map<Any, Any>, String) -> Unit
+) {
+    if (detectVideo) videoIntentHooks += callback
+    if (detectShorts) shortsIntentHooks += callback
 }

@@ -14,9 +14,9 @@ import io.github.nexalloy.PatchExecutor
 import io.github.nexalloy.morphe.shared.layout.theme.lithoColorHookPatch
 import io.github.nexalloy.morphe.shared.layout.theme.lithoDrawableColorHook
 import io.github.nexalloy.morphe.shared.misc.litho.context.ConversionContext
+import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
 import io.github.nexalloy.morphe.shared.misc.spans.addSpanFilter
 import io.github.nexalloy.morphe.shared.misc.spans.inclusiveSpanPatch
-import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
 import io.github.nexalloy.morphe.youtube.insertLiteralOverride
 import io.github.nexalloy.morphe.youtube.misc.playservice.VersionCheck
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_20_28_or_greater
@@ -26,10 +26,11 @@ import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_04_or_greater
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_05_or_greater
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_08_or_greater
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_11_or_greater
+import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_15_or_greater
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_29_or_greater
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_30_or_greater
-import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_38_or_greater
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_36_or_greater
+import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_38_or_greater
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_41_or_greater
 import io.github.nexalloy.morphe.youtube.misc.settings.PreferenceScreen
 import io.github.nexalloy.patch
@@ -193,8 +194,10 @@ val LegacyPlayerControls = patch(
         if (is_21_38_or_greater) insertLiteralOverride(45840190L, false)
     }
 
-    // Override flags that interfere with old player icons override.
-    insertLiteralOverride(45771730, LegacyPlayerControlsPatch::allowModernPlayerLayoutFlags)
+    // Comments teaser A/B test: shows a small comments card below the player time bar,
+    // which can be too narrow to read in portrait.
+    // It also crashes the app on startup with the old player icons, so always turn it off.
+    if (is_21_15_or_greater) insertLiteralOverride(45771730L, false)
     // Watch feed resize A/B test: every scroll event of the watch next feed
     // resizes the player and relayouts the watch page, and scrolling lags.
     // It also interferes with the old player icons, so always turn it off.

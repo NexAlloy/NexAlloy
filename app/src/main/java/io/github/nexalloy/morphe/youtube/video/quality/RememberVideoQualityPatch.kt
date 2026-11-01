@@ -150,8 +150,9 @@ val RememberVideoQuality = patch {
     })
 
     // A quality selected by the user is used again if YouTube reloads the video,
-    // until another video is opened.
-    hookVideoIntent { map, videoId -> RememberVideoQualityPatch.onVideoIntentLoaded(map, videoId) }
+    // until another video is opened in the same player.
+    hookVideoIntent(detectShorts = false) { map, videoId -> RememberVideoQualityPatch.onVideoIntentLoaded(map, videoId) }
+    hookVideoIntent(detectVideo = false) { map, videoId -> RememberVideoQualityPatch.onShortsIntentLoaded(map, videoId) }
 
     // Inject a call to remember the selected quality for Shorts.
     val menuQualities = ::videoQualityMenuQualitiesField.field

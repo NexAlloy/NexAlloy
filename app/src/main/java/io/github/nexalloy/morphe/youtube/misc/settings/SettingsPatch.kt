@@ -10,7 +10,6 @@ import app.morphe.extension.youtube.settings.YouTubeActivityHook
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XC_MethodReplacement
 import io.github.nexalloy.R
-import io.github.nexalloy.bindProxy
 import io.github.nexalloy.hookMethod
 import io.github.nexalloy.invokeOriginalMethod
 import io.github.nexalloy.morphe.shared.misc.initialization.initializationPatch
@@ -23,12 +22,14 @@ import io.github.nexalloy.morphe.shared.misc.settings.preference.PreferenceScree
 import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.TextPreference
 import io.github.nexalloy.morphe.shared.settings.preferences
-import io.github.nexalloy.morphe.youtube.interaction.downloads.GeneratedRegistryFingerprint
-import io.github.nexalloy.morphe.youtube.interaction.downloads.ProtobufClassParseByteArrayWithRegistryFingerprint
 import io.github.nexalloy.morphe.youtube.layout.buttons.overlay.PlayerOverlayButtonsSettings
+import io.github.nexalloy.morphe.youtube.misc.commandrouter.commandRouterHookPatch
 import io.github.nexalloy.morphe.youtube.misc.fix.accessibility.fixAccessibilityPatch
+import io.github.nexalloy.morphe.youtube.misc.fix.guidecache.fixGuideCachePatch
 import io.github.nexalloy.morphe.youtube.misc.fix.padding.fixPagePaddingPatch
+import io.github.nexalloy.morphe.youtube.shared.YOUTUBE_MAIN_ACTIVITY_CLASS_TYPE
 import io.github.nexalloy.patch
+import org.luckypray.dexkit.wrap.DexMethod
 
 @Suppress("UNREACHABLE_CODE")
 val SettingsHook = patch(
@@ -36,6 +37,8 @@ val SettingsHook = patch(
 ) {
     dependsOn(
         PlayerOverlayButtonsSettings,
+        commandRouterHookPatch,
+        fixGuideCachePatch,
         fixAccessibilityPatch,
         fixPagePaddingPatch,
         initializationPatch()
@@ -94,22 +97,9 @@ val SettingsHook = patch(
         }
     }
 
-    val executeCommand = ::executeSnackbarCommandMethod.method
-    val defaultCommand = ::snackbarCommandDefaultInstance.field.get(null)
-    val parseCommand = ProtobufClassParseByteArrayWithRegistryFingerprint.method
-    val registry = GeneratedRegistryFingerprint.method.invoke(null)
-    CommandRouterConstructorFingerprint.hookMethod {
-        after {
-            val router = it.thisObject
-            val adapter = object : NativeSnackbarPatch.CommandRouter {
-                override fun patch_executeCommand(command: ByteArray) {
-                    val proto = parseCommand.invoke(null, defaultCommand, command, registry)
-                    executeCommand.invoke(router, proto, HashMap<Any, Any>())
-                }
-            }
-            router.bindProxy(adapter)
-            NativeSnackbarPatch.setCommandRouter(adapter, it.args[0] as Activity)
-        }
+    // Show extension messages in the YouTube snackbar using the shared command router.
+    DexMethod("$YOUTUBE_MAIN_ACTIVITY_CLASS_TYPE->onCreate(Landroid/os/Bundle;)V").hookMethod {
+        before { NativeSnackbarPatch.initialize() }
     }
 
     // Add an "About" preference to the top.

@@ -4,9 +4,10 @@ import app.morphe.extension.youtube.patches.RestoreOldVideoActionBarPatch
 import app.morphe.extension.youtube.patches.RestoreOldVideoActionBarPatch.ConfigInfoInterface
 import app.morphe.extension.youtube.patches.RestoreOldVideoActionBarPatch.RequestInterface
 import io.github.nexalloy.callMethod
+import io.github.nexalloy.morphe.shared.misc.proto.hookElement
 import io.github.nexalloy.morphe.shared.misc.request.buildRequestPatch
 import io.github.nexalloy.morphe.shared.misc.request.hookBuildRequest
-import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
+import io.github.nexalloy.morphe.shared.misc.settings.preference.ListPreference
 import io.github.nexalloy.morphe.youtube.insertLiteralOverride
 import io.github.nexalloy.morphe.youtube.misc.contexthook.Endpoint
 import io.github.nexalloy.morphe.youtube.misc.contexthook.addClientVersionHook
@@ -14,6 +15,7 @@ import io.github.nexalloy.morphe.youtube.misc.contexthook.clientContextHookPatch
 import io.github.nexalloy.morphe.youtube.misc.playservice.VersionCheck
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_20_30_or_greater
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_20_39_or_greater
+import io.github.nexalloy.morphe.youtube.misc.proto.elementProtoParserHookPatch
 import io.github.nexalloy.morphe.youtube.misc.settings.PreferenceScreen
 import io.github.nexalloy.patch
 import io.github.nexalloy.scopedHook
@@ -22,11 +24,15 @@ import java.util.function.Supplier
 internal val restoreOldVideoActionBarPatch = patch(
     description = "Overrides 'X-Youtube-Cold-Config-Data', fixes 'Hide video action buttons' and 'Return YouTube Dislike', "
 ) {
-    dependsOn(VersionCheck, clientContextHookPatch)
+    dependsOn(VersionCheck, clientContextHookPatch, elementProtoParserHookPatch)
 
     PreferenceScreen.PLAYER.addPreferences(
-        SwitchPreference("morphe_restore_old_video_action_bar", summary = true)
+        ListPreference("morphe_video_action_bar_layout")
     )
+
+    // The layout of the action bar is a field of its element, so the Classic and Minimal layouts
+    // do not depend on the layout that the server sends.
+    hookElement(RestoreOldVideoActionBarPatch::setVideoActionBarLayout)
 
     if (is_20_39_or_greater) {
         insertLiteralOverride(45640404L, RestoreOldVideoActionBarPatch::useMediaSessionFeatureFlag)

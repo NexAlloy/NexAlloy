@@ -55,6 +55,7 @@ internal object SearchSubmitFingerprint2143 : Fingerprint(
         "Ljava/lang/String;"
     ),
     filters = listOf(
+        methodCall(name = "toByteArray", returnType = "[B"),
         methodCall( // 21.43+
             parameters = listOf(
                 "Ljava/lang/String;",
@@ -92,6 +93,7 @@ internal object SearchSubmitFingerprint1 : Fingerprint(
         "Z"
     ),
     filters = listOf(
+        methodCall(name = "toByteArray", returnType = "[B"),
         methodCall( // 21.31 - 21.42
             parameters = listOf(
                 "Ljava/lang/String;",
@@ -128,6 +130,7 @@ internal object SearchSubmitFingerprint2 : Fingerprint(
         "Ljava/lang/String;"
     ),
     filters = listOf(
+        methodCall(name = "toByteArray", returnType = "[B"),
         methodCall( // 21.30 and older.
             parameters = listOf(
                 "Ljava/lang/String;",

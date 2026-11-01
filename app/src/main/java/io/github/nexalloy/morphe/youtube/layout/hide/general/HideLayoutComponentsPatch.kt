@@ -286,7 +286,8 @@ val HideLayoutComponents = patch(
 //            TextPreference(
 //                "morphe_hide_account_menu_filter_strings",
 //                inputType = InputType.TEXT_MULTI_LINE
-//            )
+//            ),
+//            SwitchPreference("morphe_hide_account_menu_downloads") // TODO: Account menu filtering.
 //        ),
 //        SwitchPreference("morphe_hide_floating_microphone_button", summary = true),
         SwitchPreference("morphe_hide_get_premium_button"),

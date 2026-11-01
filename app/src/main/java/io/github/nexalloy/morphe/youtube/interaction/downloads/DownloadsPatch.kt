@@ -6,8 +6,11 @@ import app.morphe.extension.shared.spoof.SpoofVideoStreamsPatch
 import app.morphe.extension.shared.spoof.requests.StreamingDataRequest
 import app.morphe.extension.youtube.patches.DownloadsPatch
 import app.morphe.extension.youtube.patches.InAppDownloadsPatch
+import app.morphe.extension.youtube.settings.preference.ExportFolderPreference
+import app.morphe.extension.youtube.videoplayer.ExportDownloadButton
 import app.morphe.extension.youtube.videoplayer.ExternalDownloadButton
 import app.morphe.extension.youtube.videoplayer.ShortsDownloadButton
+import de.robv.android.xposed.XC_MethodReplacement.returnConstant
 import io.github.nexalloy.R
 import io.github.nexalloy.callMethod
 import io.github.nexalloy.hookMethod
@@ -16,17 +19,19 @@ import io.github.nexalloy.morphe.shared.misc.proto.hookElement
 import io.github.nexalloy.morphe.shared.misc.request.buildRequestPatch
 import io.github.nexalloy.morphe.shared.misc.request.hookBuildRequest
 import io.github.nexalloy.morphe.shared.misc.settings.preference.ListPreference
+import io.github.nexalloy.morphe.shared.misc.settings.preference.NonInteractivePreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.PreferenceScreenPreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.TextPreference
 import io.github.nexalloy.morphe.shared.misc.spoof.plainStreamRequestsPatch
-import io.github.nexalloy.morphe.youtube.misc.playercontrols.ControlInitializer
 import io.github.nexalloy.morphe.youtube.layout.flyout.flyoutPatch
 import io.github.nexalloy.morphe.youtube.misc.auth.authHookPatch
-import io.github.nexalloy.morphe.youtube.misc.proto.elementProtoParserHookPatch
+import io.github.nexalloy.morphe.youtube.misc.commandrouter.commandRouterHookPatch
+import io.github.nexalloy.morphe.youtube.misc.playercontrols.ControlInitializer
 import io.github.nexalloy.morphe.youtube.misc.playercontrols.LegacyPlayerControls
 import io.github.nexalloy.morphe.youtube.misc.playercontrols.addTopControl
 import io.github.nexalloy.morphe.youtube.misc.playercontrols.initializeTopControl
+import io.github.nexalloy.morphe.youtube.misc.proto.elementProtoParserHookPatch
 import io.github.nexalloy.morphe.youtube.misc.settings.PreferenceScreen
 import io.github.nexalloy.morphe.youtube.video.information.VideoInformationPatch
 import io.github.nexalloy.patch
@@ -36,7 +41,7 @@ val Downloads = patch(
     name = "Downloads",
     description = "Adds support to download videos with an external downloader app " +
             "using the in-app download button or a video player action button, " +
-            "and adds an option to download videos in-app.",
+            "adds an option to download videos in-app, and exports saved videos to the device.",
 ) {
     dependsOn(
         LegacyPlayerControls,
@@ -46,6 +51,7 @@ val Downloads = patch(
         authHookPatch,
         elementProtoParserHookPatch,
         flyoutPatch,
+        commandRouterHookPatch,
     )
 
     PreferenceScreen.PLAYER.addPreferences(
@@ -54,6 +60,13 @@ val Downloads = patch(
             sorting = PreferenceScreenPreference.Sorting.UNSORTED,
             preferences = setOf(
                 ListPreference("morphe_download_mode"),
+                SwitchPreference("morphe_shorts_download_flyout_button", summary = true),
+                NonInteractivePreference(
+                    "morphe_export_download_folder",
+                    summaryKey = null,
+                    tag = ExportFolderPreference::class.java,
+                    selectable = true
+                ),
                 SwitchPreference("morphe_external_downloader_overlay_button", summary = true),
                 TextPreference(
                     "morphe_external_downloader_name",
@@ -61,7 +74,6 @@ val Downloads = patch(
                 ),
                 SwitchPreference("morphe_external_downloader_quick_menu", summary = true),
                 SwitchPreference("morphe_external_downloader_mark_watched", summary = true),
-                SwitchPreference("morphe_shorts_download_flyout_button", summary = true),
             ),
         ),
     )
@@ -86,6 +98,11 @@ val Downloads = patch(
     }
 
     setExtensionIsPatchIncluded(ShortsDownloadButton::class.java)
+    setExtensionIsPatchIncluded(ExportDownloadButton::class.java)
+
+    // Commands run by the extension have no interaction logger.
+    InAppDownloadsPatch::class.java.getDeclaredMethod("getNoOpInteractionLogger")
+        .hookMethod(returnConstant(::noOpInteractionLogger.field.get(null)))
 
     // Open the external downloader with the playlist link, instead of saving the playlist.
     OfflinePlaylistEndpointFingerprint.hookMethod {
