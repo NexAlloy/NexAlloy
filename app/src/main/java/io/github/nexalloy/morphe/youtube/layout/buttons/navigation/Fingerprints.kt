@@ -8,6 +8,7 @@ import io.github.nexalloy.morphe.InstructionLocation.MatchAfterImmediately
 import io.github.nexalloy.morphe.InstructionLocation.MatchAfterWithin
 import io.github.nexalloy.morphe.Opcode
 import io.github.nexalloy.morphe.OpcodesFilter
+import io.github.nexalloy.morphe.StrictQuery
 import io.github.nexalloy.morphe.fieldAccess
 import io.github.nexalloy.morphe.findClassDirect
 import io.github.nexalloy.morphe.findFieldDirect
@@ -204,6 +205,7 @@ internal val pivotBarItemMessageField = findFieldDirect {
 }
 
 @RequireAppVersion(minVersion = "21.35.000")
+@StrictQuery
 internal object PivotBarRendererListFingerprint : Fingerprint(
     parameters = listOf("L"),
     returnType = "V",
@@ -211,7 +213,8 @@ internal object PivotBarRendererListFingerprint : Fingerprint(
         fieldAccess(opcode = Opcode.IGET_OBJECT, definingClass = "this", type = "L"),
         methodCall(opcode = Opcode.INVOKE_STATIC, parameters = listOf("L"), returnType = "L"),
         fieldAccess(opcode = Opcode.IPUT_OBJECT, definingClass = "this", type = "L"),
-        literal(45633821L)
+        // The new list is compared to the previous list.
+        methodCall(smali = "Ljava/lang/Class;->isInstance(Ljava/lang/Object;)Z")
     )
 )
 

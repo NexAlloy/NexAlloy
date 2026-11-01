@@ -3,10 +3,12 @@ package io.github.nexalloy.morphe.youtube.misc.navigation
 import io.github.nexalloy.RequireAppVersion
 import io.github.nexalloy.morphe.AccessFlags
 import io.github.nexalloy.morphe.Fingerprint
+import io.github.nexalloy.morphe.InstructionLocation.MatchAfterImmediately
 import io.github.nexalloy.morphe.InstructionLocation.MatchBeforeAnywhere
 import io.github.nexalloy.morphe.Opcode
 import io.github.nexalloy.morphe.ResourceType
 import io.github.nexalloy.morphe.accessFlags
+import io.github.nexalloy.morphe.anyInstruction
 import io.github.nexalloy.morphe.fieldAccess
 import io.github.nexalloy.morphe.findClassDirect
 import io.github.nexalloy.morphe.findFieldDirect
@@ -14,6 +16,7 @@ import io.github.nexalloy.morphe.findMethodDirect
 import io.github.nexalloy.morphe.findMethodListDirect
 import io.github.nexalloy.morphe.indexOfFirstInstructionOrThrow
 import io.github.nexalloy.morphe.methodCall
+import io.github.nexalloy.morphe.opcode
 import io.github.nexalloy.morphe.resourceLiteral
 import io.github.nexalloy.morphe.resourceMappings
 import io.github.nexalloy.morphe.returns
@@ -176,14 +179,24 @@ val browserIdMethod = findMethodDirect {
         )
         val browseDataExtensionField = it.instructions[browseDataExtensionIndex].fieldRef!!
 
+        // Matches two 100% identical methods, either method works here.
+        // 21.44+ has a third method that reads a different string of the browse data
+        // and checks it is not empty, instead of returning it directly.
         Fingerprint(
             accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
             returnType = "Ljava/lang/String;",
             parameters = listOf(endpointField().type.descriptor),
             filters = listOf(
-                fieldAccess(opcode = Opcode.SGET_OBJECT, reference = browseDataExtensionField)
+                fieldAccess(opcode = Opcode.SGET_OBJECT, reference = browseDataExtensionField),
+                fieldAccess(opcode = Opcode.IGET_OBJECT, type = "Ljava/lang/String;"),
+                anyInstruction(
+                    opcode(Opcode.RETURN_OBJECT),
+                    // 21.44+ jumps to the return.
+                    opcode(Opcode.GOTO),
+                    location = MatchAfterImmediately()
+                )
             )
-        ).matchAll(1..2).first().method // Both matches are identical methods in the same class.
+        ).matchAll(1..2).first().method
     }
 }
 

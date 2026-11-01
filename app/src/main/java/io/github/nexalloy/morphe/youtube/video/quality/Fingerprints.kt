@@ -366,19 +366,30 @@ internal object PlaybackControllerClearBufferFingerprint : Fingerprint(
     )
 )
 
+internal const val MEDIA_SEGMENT_HOLDER_CLASS =
+    "Lcom/google/android/libraries/youtube/media/player/exo2/platypus/mediapush/MediaSegmentHolder;"
+
 /**
- * The method of the buffer manager that clears the buffered media of a track
- * after the segment that contains a time.
+ * The call to the method of the buffered media of a track that clears it after the segment
+ * that contains a time. Before 21.44 it is called from a method of the buffer manager,
+ * and 21.44+ inlines that method into the player.
  */
 @RequireAppVersion("21.17.000")
-internal object BufferManagerDiscardBufferAfterSegmentFingerprint : Fingerprint(
-    definingClass = BUFFER_MANAGER_CLASS,
-    returnType = "V",
-    parameters = listOf("L", "J"),
+internal object MediaSegmentHolderDiscardBufferAfterSegmentFingerprint : Fingerprint(
     filters = listOf(
-        string("discardBufferAfterCurrentSegment with disposed BufferManager")
+        string("discardBufferAfterCurrentSegment with disposed BufferManager"),
+        methodCall(
+            definingClass = MEDIA_SEGMENT_HOLDER_CLASS,
+            returnType = "V",
+            parameters = listOf("J")
+        )
     )
 )
+
+@get:RequireAppVersion("21.17.000")
+internal val mediaSegmentHolderDiscardBufferAfterSegmentMethod = findMethodDirect {
+    MediaSegmentHolderDiscardBufferAfterSegmentFingerprint.instructionMatches.last().instruction.methodRef!!
+}
 
 internal const val SAMPLE_HOLDER_CLASS =
     "Lcom/google/android/libraries/youtube/media/player/exo2/platypus/mediapush/SampleHolder;"
@@ -390,7 +401,7 @@ internal const val SAMPLE_HOLDER_CLASS =
 internal object BufferManagerGetMediaSegmentHolderFingerprint : Fingerprint(
     definingClass = BUFFER_MANAGER_CLASS,
     accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
-    returnType = "Lcom/google/android/libraries/youtube/media/player/exo2/platypus/mediapush/MediaSegmentHolder;",
+    returnType = MEDIA_SEGMENT_HOLDER_CLASS,
     parameters = listOf("L")
 )
 
@@ -435,7 +446,7 @@ internal object SampleHolderDiscardBufferBeforeSegmentFingerprint : Fingerprint(
  */
 @RequireAppVersion("21.17.000")
 internal object MediaSegmentHolderSetFirstSegmentEndTimeFingerprint : Fingerprint(
-    definingClass = "Lcom/google/android/libraries/youtube/media/player/exo2/platypus/mediapush/MediaSegmentHolder;",
+    definingClass = MEDIA_SEGMENT_HOLDER_CLASS,
     returnType = "V",
     parameters = listOf(),
     filters = listOf(

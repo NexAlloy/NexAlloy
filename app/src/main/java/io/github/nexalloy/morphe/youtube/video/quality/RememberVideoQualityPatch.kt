@@ -218,7 +218,7 @@ val RememberVideoQuality = patch {
         val videoTrack = ::videoTrackTypeField.field.get(null)
         val stopRequests = ::stopMediaRequestsMethod.method
         val bufferManager = ::playbackBufferManagerField.field
-        val discardAfter = BufferManagerDiscardBufferAfterSegmentFingerprint.method
+        val discardAfter = ::mediaSegmentHolderDiscardBufferAfterSegmentMethod.method
         val getMedia = BufferManagerGetMediaSegmentHolderFingerprint.method
         val firstEnd = ::firstSegmentEndTimeField.field
         val discardBefore = if (is_21_43_or_greater) SampleHolderDiscardBufferBeforeSegmentFingerprint.method
@@ -236,8 +236,9 @@ val RememberVideoQuality = patch {
                 if (time < 0) return@before
                 stopRequests.invoke(it.thisObject)
                 val manager = bufferManager.get(it.thisObject)
-                discardAfter.invoke(manager, videoTrack, time)
-                discardBeforeSegment(getMedia.invoke(manager, videoTrack)!!, time)
+                val media = getMedia.invoke(manager, videoTrack)!!
+                discardAfter.invoke(media, time)
+                discardBeforeSegment(media, time)
                 it.result = null
             }
         }
