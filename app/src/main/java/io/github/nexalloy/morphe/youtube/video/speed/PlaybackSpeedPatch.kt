@@ -11,6 +11,7 @@ import io.github.nexalloy.morphe.youtube.misc.settings.PreferenceScreen
 import io.github.nexalloy.morphe.youtube.video.speed.button.PlaybackSpeedButton
 import io.github.nexalloy.morphe.youtube.video.speed.custom.CustomPlaybackSpeed
 import io.github.nexalloy.morphe.youtube.video.speed.remember.RememberPlaybackSpeed
+import io.github.nexalloy.morphe.youtube.video.speed.shorts.ShortsPlaybackSpeedFlyout
 import io.github.nexalloy.patch
 
 /**
@@ -29,6 +30,7 @@ val PlaybackSpeed = patch(
         CustomPlaybackSpeed,
         RememberPlaybackSpeed,
         PlaybackSpeedButton,
+        ShortsPlaybackSpeedFlyout,
     )
 
     setExtensionIsPatchIncluded(VideoInformation::class.java)

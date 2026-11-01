@@ -54,8 +54,6 @@ val RememberPlaybackSpeed = patch {
                 tag = CustomVideoSpeedListPreference::class.java
             ),
             SwitchPreference("morphe_shorts_remember_playback_speed", summary = true)
-            // TODO: Port ShortsPlaybackSpeedFlyoutPatch before exposing the new flyout entry.
-            // SwitchPreference("morphe_shorts_playback_speed_flyout_button", summary = true)
         )
     )
 
