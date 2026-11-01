@@ -1,6 +1,7 @@
 package io.github.nexalloy.morphe.shared.misc.litho.filter
 
 import io.github.nexalloy.AllowAbstract
+import io.github.nexalloy.TargetApp
 import io.github.nexalloy.morphe.AccessFlags
 import io.github.nexalloy.morphe.Fingerprint
 import io.github.nexalloy.morphe.StrictQuery
@@ -121,6 +122,7 @@ val emptyComponentClass = findClassDirect {
  * Creates the decorator of the command event data of an item of a list, such as the feed.
  * The decorator holds the data, and the item is the first parameter of the data.
  */
+@TargetApp("youtube")
 internal object CommandEventDataDecoratorFingerprint : Fingerprint(
     accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
     returnType = "L",
@@ -142,6 +144,7 @@ internal object CommandEventDataDecoratorFingerprint : Fingerprint(
 /**
  * Constructor of the observable list that holds the items of the lists, such as the feed.
  */
+@TargetApp("youtube")
 internal object ObservableListConstructorFingerprint : Fingerprint(
     name = "<init>",
     accessFlags = listOf(AccessFlags.PROTECTED, AccessFlags.CONSTRUCTOR),
@@ -155,6 +158,7 @@ internal object ObservableListConstructorFingerprint : Fingerprint(
  * into rows, such as the related videos, are laid out again too.
  */
 @StrictQuery
+@TargetApp("youtube")
 internal object ListSectionRemoveItemFingerprint : Fingerprint(
     returnType = "V",
     parameters = listOf("Ljava/lang/Object;"),
@@ -179,6 +183,7 @@ internal object ListSectionRemoveItemFingerprint : Fingerprint(
  * Releases a section of a list, such as when the list is created again.
  * The section stops listening to the events, such as the removal of its items.
  */
+@TargetApp("youtube")
 internal object ListSectionReleaseFingerprint : Fingerprint(
     classFingerprint = ListSectionRemoveItemFingerprint,
     accessFlags = listOf(AccessFlags.PUBLIC),
@@ -200,6 +205,7 @@ internal object ListSectionReleaseFingerprint : Fingerprint(
  * otherwise the items are removed one by one.
  */
 @StrictQuery
+@TargetApp("youtube")
 internal object ListSectionUpdateRowsFingerprint : Fingerprint(
     classFingerprint = ListSectionRemoveItemFingerprint,
     returnType = "V",
@@ -227,6 +233,7 @@ internal object ListSectionUpdateRowsFingerprint : Fingerprint(
     )
 )
 
+@get:TargetApp("youtube")
 internal val commandEventDataDecoratorsMethod = findMethodDirect {
     val field = ConversionContextToStringFingerprint().findFieldFromToString(", globalCommandEventDataDecoratorsInternal=")
     Fingerprint(
@@ -237,29 +244,35 @@ internal val commandEventDataDecoratorsMethod = findMethodDirect {
     ).match().method
 }
 
+@get:TargetApp("youtube")
 internal val listItemDataField = findFieldDirect {
     CommandEventDataDecoratorFingerprint.instructionMatches.first().instruction.methodRef!!.declaredClass!!.fields
         .single { it.typeSign == "Ljava/lang/Object;" }
 }
 
+@get:TargetApp("youtube")
 internal val listItemDecoratorDataField = findFieldDirect {
     val dataType = listItemDataField().declaredClass!!
     CommandEventDataDecoratorFingerprint.instructionMatches.last().instruction.methodRef!!.declaredClass!!.fields
         .single { it.type == dataType }
 }
 
+@get:TargetApp("youtube")
 internal val listSectionItemsField = findFieldDirect {
     ListSectionRemoveItemFingerprint.instructionMatches[2].instruction.fieldRef!!
 }
 
+@get:TargetApp("youtube")
 internal val listSectionIsGridMethod = findMethodDirect {
     ListSectionUpdateRowsFingerprint.instructionMatches[0].instruction.methodRef!!
 }
 
+@get:TargetApp("youtube")
 internal val listSectionLayOutRowsMethod = findMethodDirect {
     ListSectionUpdateRowsFingerprint.instructionMatches[3].instruction.methodRef!!
 }
 
+@get:TargetApp("youtube")
 internal val listSectionUpdateMethod = findMethodDirect {
     ListSectionUpdateRowsFingerprint.instructionMatches[4].instruction.methodRef!!
 }
