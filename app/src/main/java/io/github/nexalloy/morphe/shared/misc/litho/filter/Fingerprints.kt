@@ -9,7 +9,6 @@ import io.github.nexalloy.morphe.InstructionLocation.MatchAfterWithin
 import io.github.nexalloy.morphe.Opcode
 import io.github.nexalloy.morphe.StrictQuery
 import io.github.nexalloy.morphe.fieldAccess
-import io.github.nexalloy.morphe.findClassDirect
 import io.github.nexalloy.morphe.findFieldDirect
 import io.github.nexalloy.morphe.findFieldFromToString
 import io.github.nexalloy.morphe.findMethodDirect
@@ -100,6 +99,13 @@ private object EmptyComponentParentFingerprint : Fingerprint(
     )
 )
 
+internal object EmptyComponentFingerprint : Fingerprint(
+    classFingerprint = EmptyComponentParentFingerprint,
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
+    returnType = "L",
+    parameters = listOf("L")
+)
+
 internal object LithoThreadExecutorFingerprint : Fingerprint(
     accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.CONSTRUCTOR),
     parameters = listOf("I", "I", "I"),
@@ -115,8 +121,8 @@ internal object LithoThreadExecutorFingerprint : Fingerprint(
     }
 )
 
-val emptyComponentClass = findClassDirect {
-    EmptyComponentParentFingerprint().declaredClass!!
+val emptyComponentField = findFieldDirect {
+    EmptyComponentFingerprint().returnType!!.fields.single()
 }
 
 /**

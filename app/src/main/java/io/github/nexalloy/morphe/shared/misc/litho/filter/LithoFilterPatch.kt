@@ -10,7 +10,6 @@ import io.github.nexalloy.hookMethod
 import io.github.nexalloy.morphe.shared.misc.litho.context.ConversionContext
 import io.github.nexalloy.morphe.shared.misc.litho.context.commandEventDataDecorators
 import io.github.nexalloy.morphe.youtube.insertLiteralOverride
-import io.github.nexalloy.new
 import io.github.nexalloy.patch
 import io.github.nexalloy.scopedHook
 
@@ -75,7 +74,9 @@ internal fun sharedLithoFilterPatch(
     })
 
     ComponentCreateFingerprint.hookMethod {
-        val emptyComponentClazz = ::emptyComponentClass.clazz
+        // NexAlloy: use the host builder to initialize the component with the current context.
+        val builderMethod = EmptyComponentFingerprint.method
+        val componentField = ::emptyComponentField.field
         val protoBufferEncodeMethod = ProtobufBufferEncodeFingerprint.method
         val protoBufferEncodeClass = ProtobufBufferEncodeFingerprint.declaredClass
         val accessibilityIdMethod = ::AccessibilityIdMethod.method
@@ -99,7 +100,7 @@ internal fun sharedLithoFilterPatch(
                     accessibilityText
                 )
             ) {
-                param.result = emptyComponentClazz.new()
+                param.result = componentField.get(builderMethod.invoke(null, param.args[0]))
             }
         }
     }

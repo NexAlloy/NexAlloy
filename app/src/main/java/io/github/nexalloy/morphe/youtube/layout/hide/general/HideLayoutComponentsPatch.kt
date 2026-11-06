@@ -20,7 +20,8 @@ import app.morphe.extension.youtube.settings.preference.HTMLPreference
 import app.morphe.extension.youtube.settings.preference.KeywordContentStatsPreferenceCategory
 import com.google.protobuf.CodedInputStream
 import io.github.nexalloy.morphe.shared.misc.litho.filter.addLithoFilter
-import io.github.nexalloy.morphe.shared.misc.litho.filter.emptyComponentClass
+import io.github.nexalloy.morphe.shared.misc.litho.filter.EmptyComponentFingerprint
+import io.github.nexalloy.morphe.shared.misc.litho.filter.emptyComponentField
 import io.github.nexalloy.morphe.shared.misc.litho.node.hookTreeNodeResult
 import io.github.nexalloy.morphe.shared.misc.proto.hookElement
 import io.github.nexalloy.morphe.shared.misc.settings.preference.InputType
@@ -53,7 +54,6 @@ import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_25_or_greater
 import io.github.nexalloy.morphe.youtube.misc.proto.elementProtoParserHookPatch
 import io.github.nexalloy.morphe.youtube.misc.settings.PreferenceScreen
 import io.github.nexalloy.morphe.youtube.video.speed.custom.TapAndHoldSpeedFingerprint
-import io.github.nexalloy.new
 import io.github.nexalloy.patch
 import io.github.nexalloy.scopedHook
 import org.luckypray.dexkit.wrap.DexMethod
@@ -392,14 +392,15 @@ val HideLayoutComponents = patch(
     // region hide mix playlists
 
     ParseElementFromBufferFingerprint.hookMethod({
-        val emptyComponent = ::emptyComponentClass.clazz.new()
+        val builderMethod = EmptyComponentFingerprint.method
+        val componentField = ::emptyComponentField.field
         after {
             val bytes = it.args[2] as ByteArray
             if (LayoutComponentsFilter.filterMixPlaylists(bytes)) {
                 app.morphe.extension.shared.patches.components.LithoFilterPatch.removeFilteredElementListItem(
                     io.github.nexalloy.morphe.shared.misc.litho.context.ConversionContext(it.args[1])
                 )
-                it.result = emptyComponent
+                it.result = componentField.get(builderMethod.invoke(null, it.args[0]))
             }
         }
     })
