@@ -124,7 +124,7 @@ When upstream removes a hook, flag override, or call chain, or replaces it with 
 
 When upstream renames or extracts logic into shared directories, follow references to update local imports, dependencies, callback registration, screen definitions, and resource names, and remove unused fingerprints and registrations. Check whether an existing shared hook already covers the behavior to avoid duplicate hooks.
 
-New upstream leaf directories may contain new features or newly extracted dependencies of existing features. Sync existing local ports without independently adding patches, including new upstream patches, unless the user explicitly requests them. Record new patches as outside the current sync scope. Port extracted dependencies and structural changes required to preserve existing behavior without enabling additional features. Changes fully provided by the extension itself with compatible interfaces can be recorded as taking effect through the submodule merge.
+New upstream leaf directories may contain new features or newly extracted dependencies of existing features. Sync existing local ports without independently adding patches, including new upstream patches, unless the user explicitly requests them. Omit patches without local counterparts from the Markdown report. Port extracted dependencies and structural changes required to preserve existing behavior without enabling additional features, and report them with their affected local patches. Changes fully provided by the extension itself with compatible interfaces can be recorded as taking effect through the submodule merge.
 
 ## Limits of these rules
 
