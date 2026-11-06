@@ -1,6 +1,7 @@
 package io.github.nexalloy.morphe.youtube.misc.settings
 
 import android.app.Activity
+import android.widget.FrameLayout
 import app.morphe.extension.shared.ResourceUtils
 import app.morphe.extension.shared.settings.preference.ImportExportPreference
 import app.morphe.extension.shared.settings.preference.SeekBarPreference
@@ -29,6 +30,7 @@ import io.github.nexalloy.morphe.youtube.misc.fix.guidecache.fixGuideCachePatch
 import io.github.nexalloy.morphe.youtube.misc.fix.padding.fixPagePaddingPatch
 import io.github.nexalloy.morphe.youtube.shared.YOUTUBE_MAIN_ACTIVITY_CLASS_TYPE
 import io.github.nexalloy.patch
+import io.github.nexalloy.scopedHook
 import org.luckypray.dexkit.wrap.DexMethod
 
 @Suppress("UNREACHABLE_CODE")
@@ -101,6 +103,18 @@ val SettingsHook = patch(
     DexMethod("$YOUTUBE_MAIN_ACTIVITY_CLASS_TYPE->onCreate(Landroid/os/Bundle;)V").hookMethod {
         before { NativeSnackbarPatch.initialize() }
     }
+
+    BottomUiContainerOnLayoutFingerprint.hookMethod(scopedHook(
+        FrameLayout::class.java.getDeclaredMethod("onLayout", Boolean::class.javaPrimitiveType,
+            Int::class.javaPrimitiveType, Int::class.javaPrimitiveType,
+            Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+    ) {
+        after {
+            if (it.thisObject === outerParam.thisObject) {
+                NativeSnackbarPatch.removeExtraBottomRoom(it.thisObject as FrameLayout)
+            }
+        }
+    })
 
     // Add an "About" preference to the top.
     preferences += NonInteractivePreference(

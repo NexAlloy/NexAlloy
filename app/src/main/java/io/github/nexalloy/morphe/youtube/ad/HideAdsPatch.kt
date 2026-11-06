@@ -141,13 +141,14 @@ val HideAds = patch(
     setOf(
         Endpoint.GET_WATCH,
         Endpoint.PLAYER,
-        Endpoint.REEL,
     ).forEach { endpoint ->
         addOSNameHook(
             endpoint,
             AdsFilter::hideVideoAds
         )
     }
+
+    addOSNameHook(Endpoint.REEL, AdsFilter::hideShortsAds)
 
     addOSNameHook(
         Endpoint.GUIDE,

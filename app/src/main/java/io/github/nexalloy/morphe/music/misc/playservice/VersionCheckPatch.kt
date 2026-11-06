@@ -3,7 +3,6 @@ package io.github.nexalloy.morphe.music.misc.playservice
 import io.github.nexalloy.patch
 import kotlin.properties.Delegates
 
-
 // Use notNull delegate so an exception is thrown if these fields are accessed before they are set.
 
 var is_9_19_or_greater: Boolean by Delegates.notNull()
@@ -22,6 +21,8 @@ var is_9_32_or_greater: Boolean by Delegates.notNull()
     private set
 var is_9_33_or_greater: Boolean by Delegates.notNull()
     private set
+var is_9_37_or_greater: Boolean by Delegates.notNull()
+    private set
 
 val versionCheckPatch = patch {
     val versionName = appContext.packageManager
@@ -39,4 +40,5 @@ val versionCheckPatch = patch {
     is_9_30_or_greater = isEqualsOrGreaterThan("9.30.00")
     is_9_32_or_greater = isEqualsOrGreaterThan("9.32.00")
     is_9_33_or_greater = isEqualsOrGreaterThan("9.33.00")
+    is_9_37_or_greater = isEqualsOrGreaterThan("9.37.00")
 }

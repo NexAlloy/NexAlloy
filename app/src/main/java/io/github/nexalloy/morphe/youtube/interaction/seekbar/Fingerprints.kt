@@ -425,3 +425,10 @@ val slideSeekbarModelField = findFieldDirect {
 val slideSeekbarViewField = findFieldDirect {
     SlideSeekbarGetViewControllerFingerprint.instructionMatches[3].instruction.fieldRef!!
 }
+
+internal object SlideSeekbarHandlerConstructorFingerprint : Fingerprint (
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.CONSTRUCTOR),
+    filters = listOf(
+        resourceLiteral(ResourceType.DIMEN, "seek_easy_horizontal_touch_offset_to_start_scrubbing")
+    )
+)

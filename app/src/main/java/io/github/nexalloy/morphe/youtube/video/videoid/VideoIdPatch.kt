@@ -1,12 +1,21 @@
 package io.github.nexalloy.morphe.youtube.video.videoid
 
 import app.morphe.extension.shared.Logger
+import io.github.nexalloy.HookDsl
+import io.github.nexalloy.IScopedHookCallback
 import io.github.nexalloy.morphe.youtube.video.playerresponse.Hook
 import io.github.nexalloy.morphe.youtube.video.playerresponse.PlayerResponseMethodHook
 import io.github.nexalloy.morphe.youtube.video.playerresponse.addPlayerResponseMethodHook
 import io.github.nexalloy.patch
+import io.github.nexalloy.scopedHook
 
 private val videoIdHooks = mutableListOf<(String) -> Unit>()
+private val backgroundVideoIdHooks = mutableListOf<(String) -> Unit>()
+
+/** Supports changing regular videos during background playback when no video is visible. */
+fun hookBackgroundPlayVideoId(hook: (String) -> Unit) {
+    backgroundVideoIdHooks.add(hook)
+}
 
 /**
  * Hooks the new video id when the video changes.
@@ -72,7 +81,6 @@ fun hookPlayerResponseVideoId(method :(videoId: String, isShortAndOpeningOrPlayi
     ),
 )
 
-
 val VideoId = patch(
     description = "Hooks to detect when the video id changes.",
 ) {
@@ -88,6 +96,16 @@ val VideoId = patch(
             videoIdHooks.forEach { it(videoId) }
         }
     }
+
+    val notifyBackgroundId: HookDsl<IScopedHookCallback>.() -> Unit = {
+        after {
+            val videoId = it.result as? String ?: return@after
+            backgroundVideoIdHooks.forEach { hook -> hook(videoId) }
+        }
+    }
+    ::backgroundVideoIdMethod.hookMethod(scopedHook(*::backgroundVideoIdGetterMethods.dexMethodList.map {
+        it.toMethod() to notifyBackgroundId
+    }.toTypedArray()))
 
     // TODO Addon
 }

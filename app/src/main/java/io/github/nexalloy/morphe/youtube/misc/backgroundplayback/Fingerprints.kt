@@ -133,3 +133,10 @@ val backgroundPlaybackManagerShortsFingerprint = findMethodListDirect {
         }
     }
 }
+
+@get:RequireAppVersion("21.15.000")
+val playingWhenBackgroundedMethods = findMethodListDirect {
+    findMethod { matcher { addEqString("was_playing_when_backgrounded") } }
+        .map { it.declaredClass!! }.distinctBy { it.descriptor }
+        .flatMap { it.methods }
+}

@@ -5,18 +5,25 @@ import android.os.Build
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import app.morphe.extension.shared.settings.preference.SeekBarPreference
 import app.morphe.extension.youtube.innertube.BrowseResponseOuterClass.BrowseTab
 import app.morphe.extension.youtube.innertube.BrowseResponseOuterClass.TabRenderer
+import app.morphe.extension.youtube.innertube.GuideResponseOuterClass.ButtonRenderer
 import app.morphe.extension.youtube.innertube.GuideResponseOuterClass.PivotBarItemBytes
 import app.morphe.extension.youtube.innertube.GuideResponseOuterClass.PivotBarItemRenderer
 import app.morphe.extension.youtube.patches.ClassicSubscriptionsLayoutPatch
 import app.morphe.extension.youtube.patches.NavigationBarPatch
+import app.morphe.extension.youtube.settings.preference.GlassNavigationBarPreference
+import app.morphe.extension.youtube.settings.preference.NavigationButtonsOrderPreference
+import com.google.protobuf.ExtensionRegistryLite
+import com.google.protobuf.MessageLite
 import io.github.nexalloy.HookDsl
 import io.github.nexalloy.IScopedHookCallback
 import io.github.nexalloy.callMethod
 import io.github.nexalloy.hookMethod
 import io.github.nexalloy.morphe.setExtensionIsPatchIncluded
 import io.github.nexalloy.morphe.shared.misc.settings.preference.ListPreference
+import io.github.nexalloy.morphe.shared.misc.settings.preference.NonInteractivePreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.PreferenceScreenPreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.PreferenceScreenPreference.Sorting
 import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
@@ -50,6 +57,8 @@ private lateinit var pivotBarRendererClass: Class<*>
 private lateinit var pivotBarMessageField: Field
 
 fun isPivotBar(view: View?): Boolean = navigationBarPaddingField.declaringClass.isInstance(view)
+
+fun getNavigationBarSystemButtonsRoom(view: View): Int = navigationBarPaddingField.getInt(view)
 
 fun setNavigationBarSystemButtonsRoom(view: View, room: Int) {
     navigationBarPaddingField.setInt(view, room)
@@ -89,10 +98,15 @@ val NavigationBar = patch(
         SwitchPreference("morphe_hide_subscriptions_button"),
         SwitchPreference("morphe_hide_notifications_button"),
 //        SwitchPreference("morphe_show_search_button"),
-//        ListPreference("morphe_show_search_button_index"),
+//        SwitchPreference("morphe_show_watch_later_button"),
 //        SwitchPreference("morphe_show_settings_button"),
-//        ListPreference("morphe_show_settings_button_index"),
 //        SwitchPreference("morphe_show_settings_button_type", summary = true),
+        // TODO Custom buttons: item factory, selected Watch later icon and ordering adapters.
+//        NonInteractivePreference(
+//            "morphe_navigation_buttons_order",
+//            tag = NavigationButtonsOrderPreference::class.java,
+//            selectable = true
+//        ),
         SwitchPreference("morphe_swap_create_with_notifications_button", summary = true),
 //        SwitchPreference("morphe_hide_navigation_bar"),
 //        SwitchPreference("morphe_narrow_navigation_buttons", summary = true),
@@ -107,7 +121,20 @@ val NavigationBar = patch(
     navPreferences += setOf(
         SwitchPreference("morphe_hide_navigation_new_content_dot"),
         SwitchPreference("morphe_navigation_bar_animations", summary = true),
-//        ListPreference("morphe_navigation_bar_style")
+        // TODO Glass style: measurement, translation, padding and tint bridges.
+//        ListPreference("morphe_navigation_bar_style"),
+//        SwitchPreference("morphe_navigation_bar_glass", summary = true),
+//        NonInteractivePreference(
+//            key = "morphe_navigation_bar_glass_opacity",
+//            tag = SeekBarPreference::class.java
+//        ),
+//        NonInteractivePreference(
+//            key = "morphe_navigation_bar_glass_height",
+//            titleKey = "morphe_navigation_bar_glass_size_title",
+//            summaryKey = "morphe_navigation_bar_glass_size_summary",
+//            tag = GlassNavigationBarPreference::class.java,
+//            selectable = true
+//        )
     )
 
     if (is_20_31_or_greater) {
@@ -116,13 +143,24 @@ val NavigationBar = patch(
 
     PreferenceScreen.GENERAL.addPreferences(
         PreferenceScreenPreference(
-            key = "morphe_navigation_buttons_screen",
+            key = "morphe_navigation_bar_screen",
             sorting = Sorting.UNSORTED,
             preferences = navPreferences
         )
     )
 
     // Some pages have their own toolbar, whose buttons are created with their renderer.
+    // NexAlloy: the extension receives module protos. Keep host extensions as unknown fields
+    // here; the host registry is applied when converting the result back below.
+    NavigationBarPatch::class.java.getDeclaredMethod(
+        "parseWithRegistry", MessageLite::class.java, ByteArray::class.java, ExtensionRegistryLite::class.java
+    ).hookMethod {
+        before {
+            it.result = (it.args[0] as MessageLite).parserForType.parseFrom(it.args[1] as ByteArray)
+        }
+    }
+    val parseFrom = ProtobufClassParseByteArrayWithRegistryFingerprint.method
+    val registry = GeneratedRegistryFingerprint.method.invoke(null)
     val toolbarConstructor = ::toolbarButtonConstructor.constructor
     val countIdsIndex = toolbarConstructor.parameterTypes.indexOfFirst { it == List::class.java }
     check(countIdsIndex > 0)
@@ -130,10 +168,11 @@ val NavigationBar = patch(
     toolbarConstructor.hookMethod {
         before {
             val renderer = it.args[rendererIndex] ?: return@before
-            val updated = NavigationBarPatch.swapToolbarNotificationButton(
-                renderer, renderer.callMethod("toByteArray") as ByteArray
-            )
-            it.args[rendererIndex] = updated
+            val moduleRenderer = ButtonRenderer.parseFrom(renderer.callMethod("toByteArray") as ByteArray)
+            val updated = NavigationBarPatch.getToolbarButtonRenderer(moduleRenderer)
+            if (updated !== moduleRenderer) {
+                it.args[rendererIndex] = parseFrom.invoke(null, renderer, updated.toByteArray(), registry)
+            }
             @Suppress("UNCHECKED_CAST")
             val countIds = it.args[countIdsIndex] as List<String>
             it.args[countIdsIndex] = NavigationBarPatch.getToolbarButtonCountIds(updated, countIds)
@@ -167,6 +206,7 @@ val NavigationBar = patch(
     insertLiteralOverride(45630927L, NavigationBarPatch::useTranslucentNavigationBarBackground)
     insertLiteralOverride(45632194L, NavigationBarPatch::useTranslucentNavigationBar)
     insertLiteralOverride(45631257L, NavigationBarPatch::useFeedBehindNavigationBar)
+    insertLiteralOverride(45633329L, NavigationBarPatch::useTranslucentNavigationBarStyle)
 
     // Transparent and opaque styles omit the blur, which can crash Android 12 and 13.
     if (Build.VERSION.SDK_INT >= 29) {
@@ -332,8 +372,6 @@ val NavigationBar = patch(
     }
 
     // Disable the A/B layout with navigation buttons without labels.
-    val parseFrom = ProtobufClassParseByteArrayWithRegistryFingerprint.method
-    val registry = GeneratedRegistryFingerprint.method.invoke(null)
     val itemDefault = ::pivotBarItemDefaultInstance.field.get(null)
     PivotBarRendererFingerprint.hookMethod {
         before {
@@ -345,24 +383,26 @@ val NavigationBar = patch(
     }
 
 //    val toolbarPreferences = mutableSetOf(
-//        SwitchPreference("morphe_hide_toolbar_cast_button"),
 //        SwitchPreference("morphe_hide_toolbar_chat_button"),
 //        SwitchPreference("morphe_hide_toolbar_create_button", titleKey = "morphe_hide_create_button_title"),
 //        SwitchPreference("morphe_hide_toolbar_microphone_button"),
 //        SwitchPreference("morphe_hide_toolbar_notification_button", titleKey = "morphe_hide_notifications_button_title"),
 //        SwitchPreference("morphe_hide_toolbar_search_button"),
 //        SwitchPreference("morphe_show_toolbar_settings_button", titleKey = "morphe_show_settings_button_title"),
-//        ListPreference("morphe_show_toolbar_settings_button_index", titleKey = "morphe_show_settings_button_index_title"),
-//        SwitchPreference("morphe_show_toolbar_settings_button_type", titleKey = "morphe_show_settings_button_type_title", summary = true)
+//        SwitchPreference("morphe_show_toolbar_settings_button_type", titleKey = "morphe_show_settings_button_type_title", summary = true),
+//        NonInteractivePreference(
+//            "morphe_toolbar_buttons_order",
+//            tag = NavigationButtonsOrderPreference::class.java,
+//            selectable = true
+//        )
 //    )
 //
 //    PreferenceScreen.GENERAL.addPreferences(
 //        PreferenceScreenPreference(
-//            key = "morphe_toolbar_buttons_screen",
+//            key = "morphe_toolbar_screen",
 //            sorting = Sorting.UNSORTED,
 //            preferences = toolbarPreferences
 //        )
 //    )
-    // TODO Toolbar create button upload
     // TODO upper navigation toolbar
 }

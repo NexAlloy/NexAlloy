@@ -2,6 +2,9 @@ package io.github.nexalloy.morphe.youtube.misc.backgroundplayback
 
 import app.morphe.extension.youtube.patches.BackgroundPlaybackPatch
 import de.robv.android.xposed.XC_MethodReplacement.returnConstant
+import io.github.nexalloy.atLast
+import io.github.nexalloy.morphe.shared.misc.debugging.experimentalBooleanFeatureFlagFingerprint
+import io.github.nexalloy.morphe.shared.misc.debugging.experimentalIndexedBooleanFeatureFlagFingerprint
 import io.github.nexalloy.morphe.shared.misc.settings.preference.ListPreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
 import io.github.nexalloy.morphe.youtube.insertLiteralOverride
@@ -13,9 +16,11 @@ import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_15_or_greater
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_21_or_greater
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_23_or_greater
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_36_or_greater
+import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_42_or_greater
 import io.github.nexalloy.morphe.youtube.misc.settings.PreferenceScreen
 import io.github.nexalloy.morphe.youtube.video.information.onCreateHook
 import io.github.nexalloy.patch
+import io.github.nexalloy.scopedHook
 
 val BackgroundPlayback = patch(
     name = "Remove background playback restrictions",
@@ -64,7 +69,19 @@ val BackgroundPlayback = patch(
     // Prevents playback from resuming if it was interrupted from the notification
     // and the app was subsequently brought to the foreground.
     if (is_21_15_or_greater) {
-        insertLiteralOverride(45770945L, BackgroundPlaybackPatch::isAutomaticForegroundPlaybackAllowed)
+        val accessors = mutableListOf(::experimentalBooleanFeatureFlagFingerprint.method)
+        if (is_21_42_or_greater) accessors += ::experimentalIndexedBooleanFeatureFlagFingerprint.method
+        ::playingWhenBackgroundedMethods.dexMethodList.forEach { method ->
+            accessors.forEach { accessor ->
+                method.hookMethod(scopedHook(accessor) {
+                    after {
+                        if (it.args.atLast(2) == 45770945L) {
+                            it.result = BackgroundPlaybackPatch.isAutomaticForegroundPlaybackAllowed(it.result as Boolean)
+                        }
+                    }
+                })
+            }
+        }
     }
 
     // Prevents playback from pausing when the overlay video settings is invoked.

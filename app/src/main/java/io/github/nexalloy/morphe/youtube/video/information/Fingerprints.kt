@@ -76,11 +76,11 @@ internal val playerResponseChannelNameMethod = findMethodDirect {
     val playerResponseType = channelInformationMethods().first().paramTypes.first().descriptor
     Fingerprint(
         filters = listOf(
-            string("setMetadata may only be called once"),
+            string("Person"),
             methodCall(
                 definingClass = playerResponseType,
                 returnType = "Ljava/lang/String;",
-                location = MatchAfterWithin(30)
+                location = MatchAfterWithin(5)
             )
         )
     ).instructionMatches.last().instruction.methodRef!!
@@ -217,7 +217,6 @@ internal object VideoLengthFingerprint : Fingerprint(
     )
 )
 
-
 val videoLengthField = findFieldDirect {
     VideoLengthFingerprint().usingFields.single { it.usingType == FieldUsingType.Write && it.field.typeName == "long" }.field
 }
@@ -241,7 +240,6 @@ object MdxSeekFingerprint : Fingerprint(
         opCodesMatcher!!.matchType = OpCodeMatchType.Equals
     }
 )
-
 
 val mdxSeekSourceType = findClassDirect {
     MdxSeekFingerprint().paramTypes[1]

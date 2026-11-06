@@ -5,7 +5,9 @@ import io.github.nexalloy.morphe.youtube.insertLiteralOverride
 import io.github.nexalloy.morphe.youtube.misc.playservice.VersionCheck
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_20_29_or_greater
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_20_47_or_greater
+import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_35_or_greater
 import io.github.nexalloy.patch
+import io.github.nexalloy.scopedHook
 
 val disableRenderNextPatch = patch(
     description = "Disables RenderNext, so the app is always rendered with Litho.",
@@ -35,6 +37,15 @@ val disableRenderNextPatch = patch(
     if (is_20_29_or_greater) {
         // Do not convert Litho components to RenderNext.
         RenderNextTemplateCheckFingerprint.hookMethod(XC_MethodReplacement.returnConstant(false))
+    }
+
+    if (is_21_35_or_greater) {
+        // Do not open Home with the page fragment, which renders the whole page with RenderNext.
+        PageFragmentRouteFingerprint.hookMethod(scopedHook(::pageFragmentRouteFlagMethod.method) {
+            after {
+                if (it.args[0] == 1073830434) it.result = false
+            }
+        })
     }
 
     if (is_20_47_or_greater) {

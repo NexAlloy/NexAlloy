@@ -18,6 +18,7 @@ import app.morphe.extension.youtube.patches.spans.SanitizeVideoSubtitleFilter
 import app.morphe.extension.youtube.patches.spans.SearchLinksFilter
 import app.morphe.extension.youtube.settings.preference.HTMLPreference
 import app.morphe.extension.youtube.settings.preference.KeywordContentStatsPreferenceCategory
+import com.google.protobuf.CodedInputStream
 import io.github.nexalloy.morphe.shared.misc.litho.filter.addLithoFilter
 import io.github.nexalloy.morphe.shared.misc.litho.filter.emptyComponentClass
 import io.github.nexalloy.morphe.shared.misc.litho.node.hookTreeNodeResult
@@ -48,7 +49,7 @@ import io.github.nexalloy.morphe.youtube.misc.navigation.browseIdHookPatch
 import io.github.nexalloy.morphe.youtube.misc.playservice.VersionCheck
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_20_31_or_greater
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_11_or_greater
-import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_26_or_greater
+import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_25_or_greater
 import io.github.nexalloy.morphe.youtube.misc.proto.elementProtoParserHookPatch
 import io.github.nexalloy.morphe.youtube.misc.settings.PreferenceScreen
 import io.github.nexalloy.morphe.youtube.video.speed.custom.TapAndHoldSpeedFingerprint
@@ -130,6 +131,8 @@ val HideLayoutComponents = patch(
                 SwitchPreference("morphe_hide_comments_dislike_button"),
                 SwitchPreference("morphe_hide_comments_emoji_button"),
                 SwitchPreference("morphe_hide_comments_filter_bar_options", summary = true),
+                SwitchPreference("morphe_hide_comments_gif_button"),
+                SwitchPreference("morphe_hide_comments_gifs_and_images", summary = true),
                 SwitchPreference("morphe_hide_comments_gift_animation_and_cards"),
                 SwitchPreference("morphe_hide_comments_gift_button"),
                 SwitchPreference("morphe_hide_comments_info_button"),
@@ -159,7 +162,6 @@ val HideLayoutComponents = patch(
         SwitchPreference("morphe_hide_live_chat_replay_button", summary = true),
         SwitchPreference("morphe_hide_medical_panels"),
         SwitchPreference("morphe_hide_player_gesture_hints", summary = true),
-//        SwitchPreference("morphe_hide_snackbar"),
         SwitchPreference("morphe_hide_subscribers_community_guidelines"),
         SwitchPreference("morphe_hide_sync_button"),
         SwitchPreference("morphe_hide_tap_and_hold_gradient", summary = true),
@@ -272,6 +274,18 @@ val HideLayoutComponents = patch(
         SwitchPreference("morphe_hide_artist_cards", summary = true),
         SwitchPreference("morphe_hide_channel_buttons", summary = true),
         SwitchPreference("morphe_hide_community_posts"),
+            PreferenceScreenPreference(
+                key = "morphe_post_buttons_screen",
+                sorting = Sorting.UNSORTED,
+                preferences = setOf(
+                    ListPreference("morphe_post_buttons_layout"),
+                    SwitchPreference("morphe_hide_post_like_dislike_buttons"),
+                    SwitchPreference("morphe_hide_post_dislike_button", summary = true),
+                    SwitchPreference("morphe_hide_post_comment_button"),
+                    SwitchPreference("morphe_hide_post_comments_preview", summary = true),
+                    SwitchPreference("morphe_hide_post_share_button", summary = true)
+                )
+            ),
         SwitchPreference("morphe_hide_compact_banner", summary = true),
         ListPreference("morphe_hide_expandable_card"),
         noTitleUnsortedPreferenceCategory(
@@ -348,6 +362,21 @@ val HideLayoutComponents = patch(
 
     addBrowseIdHook(LayoutComponentsFilter::setBrowseId)
     addSearchResultsHook(LayoutComponentsFilter::clearBrowseId)
+    // region hide guidelines sheet shown before commenting
+
+    val mutationBytes = ::entityMutationBytesMethod.method
+    EntityMutationPayloadFingerprint.hookMethod {
+        after {
+            val payload = it.result as? ByteArray ?: return@after
+            val bytes = mutationBytes.invoke(it.args[0]) as ByteArray
+            val entityType = CodedInputStream.newInstance(bytes).readTag() ushr 3
+            it.result = CommentsFilter.hideGuidelinesSheet(entityType, payload)
+        }
+    }
+
+    // endregion
+
+    hookElement(LayoutComponentsFilter::setPostButtons)
     addLithoFilter(LayoutComponentsFilter())
     addLithoFilter(DescriptionComponentsFilter())
     if (is_20_31_or_greater) {
@@ -448,7 +477,7 @@ val HideLayoutComponents = patch(
     // The flag is read by different layouts, and each must use the same value,
     // otherwise other panels such as the comments show the bottom padding twice.
     // Flag was removed in 21.26+.
-    if (is_21_11_or_greater && !is_21_26_or_greater) {
+    if (is_21_11_or_greater && !is_21_25_or_greater) {
         insertLiteralOverride(45744676, false)
     }
 
@@ -469,7 +498,6 @@ val HideLayoutComponents = patch(
     // dimen.bar_container_height
 
     // id.related_chip_cloud
-
 
     // fix: related video overlay is broken due to patch.
     insertLiteralOverride(45614162L, LayoutComponentsFilter::hideInRelatedVideos)
@@ -511,7 +539,6 @@ val HideLayoutComponents = patch(
     // TODO hide channel tab
 
     // TODO hide search term thumbnails
-
 
     // region hide live chat tooltips
 

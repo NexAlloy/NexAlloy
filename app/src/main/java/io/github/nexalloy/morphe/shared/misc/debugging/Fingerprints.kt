@@ -1,15 +1,18 @@
 package io.github.nexalloy.morphe.shared.misc.debugging
 
 import android.annotation.SuppressLint
-import io.github.nexalloy.TargetApp
 import io.github.nexalloy.RequireAppVersion
+import io.github.nexalloy.SkipTest
+import io.github.nexalloy.TargetApp
 import io.github.nexalloy.morphe.AccessFlags
+import io.github.nexalloy.morphe.Fingerprint
 import io.github.nexalloy.morphe.accessFlags
 import io.github.nexalloy.morphe.findClassDirect
 import io.github.nexalloy.morphe.findMethodDirect
 import io.github.nexalloy.morphe.parameters
 import io.github.nexalloy.morphe.parametersMatch
 import io.github.nexalloy.morphe.returns
+import io.github.nexalloy.morphe.string
 import io.github.nexalloy.morphe.strings
 
 internal val experimentFlagUtilFingerprint = findClassDirect {
@@ -142,3 +145,31 @@ internal val experimentalStringFeatureFlagFingerprint = findMethodDirect {
         }
     }
 }
+
+// Covered by the version-gated per-app finders.
+@SkipTest
+internal fun hotFeatureFlag(returnType: String) = findMethodDirect {
+    findMethod {
+        matcher {
+            declaredClass(experimentFlagUtilFingerprint().name)
+            accessFlags(AccessFlags.PUBLIC)
+            returns(returnType)
+        }
+    }.single {
+        parametersMatch(it.parameters, listOf("J")) ||
+            parametersMatch(it.parameters, listOf("I", "J"))
+    }
+}
+
+internal object BootstrapStoreSerializeFingerprint : Fingerprint(
+    filters = listOf(
+        string("!serialize")
+    )
+)
+
+internal object BootstrapStoreReadFingerprint : Fingerprint(
+    classFingerprint = BootstrapStoreSerializeFingerprint,
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "J",
+    parameters = listOf("I")
+)

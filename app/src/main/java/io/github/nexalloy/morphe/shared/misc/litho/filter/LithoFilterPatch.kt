@@ -3,12 +3,12 @@ package io.github.nexalloy.morphe.shared.misc.litho.filter
 import app.morphe.extension.shared.patches.components.Filter
 import app.morphe.extension.shared.patches.components.LithoFilterPatch
 import de.robv.android.xposed.XposedHelpers
-import io.github.nexalloy.createProxy
-import io.github.nexalloy.morphe.shared.misc.litho.context.commandEventDataDecorators
 import io.github.nexalloy.Patch
 import io.github.nexalloy.PatchExecutor
+import io.github.nexalloy.createProxy
 import io.github.nexalloy.hookMethod
 import io.github.nexalloy.morphe.shared.misc.litho.context.ConversionContext
+import io.github.nexalloy.morphe.shared.misc.litho.context.commandEventDataDecorators
 import io.github.nexalloy.morphe.youtube.insertLiteralOverride
 import io.github.nexalloy.new
 import io.github.nexalloy.patch
@@ -17,7 +17,6 @@ import io.github.nexalloy.scopedHook
 fun addLithoFilter(filter: Filter){
     LithoFilterPatch.addFilter(filter)
 }
-
 
 /**
  * Shared Litho component filter factory used by both YouTube and YT Music.
@@ -63,7 +62,6 @@ internal fun sharedLithoFilterPatch(
     description = "Hooks the method which parses the bytes into a ComponentContext to filter components."
 ) {
     block()
-
 
     // region Hook the method that parses bytes into a ComponentContext.
 
@@ -172,6 +170,39 @@ internal fun sharedLithoFilterPatch(
     }
 
     // endregion
+
+    if (removeFilteredListItems) {
+        val alpha = ::stickyHeaderAlphaField.field
+        StickyHeaderRestoreItemFingerprint.hookMethod {
+            before { if (alpha.getFloat(it.thisObject) == 0f) alpha.setFloat(it.thisObject, 1f) }
+        }
+
+        val listField = ::stickyHeaderListField.field
+        val indexField = ::stickyHeaderIndexField.field
+        val entriesField = ::stickyHeaderEntriesField.field
+        val positionField = ::stickyHeaderPositionField.field
+        val savedPosition = ::stickyHeaderSavedPositionField.field
+        val ownerField = ::stickyHeaderOwnerField.field
+        ::stickyHeaderCreateMethod.hookMethod {
+            before {
+                val owner = ownerField.get(it.thisObject)
+                // The same R8 runnable may also handle unrelated tasks.
+                if (!listField.declaringClass.isInstance(owner)) return@before
+                val list = listField.get(owner)
+                val index = indexField.getInt(list)
+                if (index < 0) return@before
+                val entries = entriesField.get(list) as List<*>
+                it.setObjectExtra("stickyHeaderSavedPosition", savedPosition.getInt(it.thisObject))
+                // Update every use, including RecyclerView's lookup of the original item.
+                savedPosition.setInt(it.thisObject, positionField.getInt(entries[index]))
+            }
+            after {
+                (it.getObjectExtra("stickyHeaderSavedPosition") as? Int)?.let { original ->
+                    savedPosition.setInt(it.thisObject, original)
+                }
+            }
+        }
+    }
 
     // region Change Litho thread executor to 1 thread to fix layout issue in unpatched YouTube.
 

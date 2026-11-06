@@ -1,7 +1,10 @@
 package io.github.nexalloy.morphe.youtube.misc.fix.videoactionbar
 
+import io.github.nexalloy.AllowAbstract
 import io.github.nexalloy.RequireAppVersion
+import io.github.nexalloy.morphe.AccessFlags
 import io.github.nexalloy.morphe.Fingerprint
+import io.github.nexalloy.morphe.InstructionLocation.MatchAfterImmediately
 import io.github.nexalloy.morphe.InstructionLocation.MatchAfterWithin
 import io.github.nexalloy.morphe.Opcode
 import io.github.nexalloy.morphe.checkCast
@@ -14,6 +17,7 @@ import io.github.nexalloy.morphe.methodCall
 import io.github.nexalloy.morphe.opcode
 import io.github.nexalloy.morphe.string
 import io.github.nexalloy.morphe.youtube.shared.CLIENT_INFO_CLASS
+import io.github.nexalloy.morphe.youtube.shared.WatchNextResponseParserFingerprint
 import org.luckypray.dexkit.DexKitBridge
 
 context(dexkit: DexKitBridge)
@@ -110,3 +114,97 @@ val configInfoBuildMethod = findMethodDirect {
     }
     method.instructions.take(assignment).last { it.methodRef?.name == "build" }.methodRef!!
 }
+
+@io.github.nexalloy.SkipTest
+internal object StreamingDataOuterClassFingerprint : Fingerprint(
+    definingClass = $$"Lcom/google/protos/youtube/api/innertube/StreamingDataOuterClass$StreamingData;",
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "V",
+    parameters = listOf(),
+    filters = listOf(
+        methodCall(
+            opcode = Opcode.INVOKE_INTERFACE,
+            parameters = listOf(),
+            returnType = "Z"
+        ),
+        opcode(Opcode.IF_NEZ),
+        methodCall(
+            opcode = Opcode.INVOKE_STATIC,
+            name = "mutableCopy"
+        )
+    )
+)
+
+internal object RelatedItemSectionFingerprint : Fingerprint(
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
+    returnType = "Z",
+    parameters = listOf("L"),
+    filters = listOf(
+        opcode(Opcode.AND_INT_LIT8),
+        fieldAccess(
+            opcode = Opcode.IGET_OBJECT,
+            type = "Ljava/lang/String;"
+        ),
+        string(
+            string = "related-items",
+            location = MatchAfterWithin(3)
+        ),
+    )
+)
+
+internal object WatchNextResponseModelClassResolverFingerprint : Fingerprint(
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "V",
+    parameters = listOf(),
+    filters = listOf(
+        string("Request being made from non-critical thread"),
+        methodCall(
+            opcode = Opcode.INVOKE_INTERFACE,
+            smali = "Lcom/google/common/util/concurrent/ListenableFuture;->get()Ljava/lang/Object;"
+        ),
+        opcode(
+            opcode = Opcode.CHECK_CAST,
+            location = MatchAfterWithin(3)
+        )
+    )
+)
+
+// Both generated streaming-data methods use the same protobuf list implementation.
+context(_: DexKitBridge)
+private fun protobufListMatch() = StreamingDataOuterClassFingerprint.matchAll().first()
+
+@get:AllowAbstract
+val protobufListIsModifiableMethod = findMethodDirect {
+    protobufListMatch().instructionMatches.first().instruction.methodRef!!
+}
+
+val protobufListMutableCopyMethod = findMethodDirect {
+    protobufListMatch().instructionMatches.last().instruction.methodRef!!
+}
+
+@get:AllowAbstract
+val protobufListMakeImmutableMethod = findMethodDirect {
+    val listType = protobufListIsModifiableMethod().declaredClass!!.descriptor
+    Fingerprint(definingClass = listType, returnType = "V", parameters = emptyList())()
+}
+
+context(dexkit: DexKitBridge)
+private fun watchNextRowsMatch() = WatchNextResponseParserFingerprint.instructionMatches[2]
+    .instruction.fieldRef!!.declaredClass!!.descriptor.let { resultsType ->
+        Fingerprint(
+            definingClass = WatchNextResponseModelClassResolverFingerprint.instructionMatches.last().instruction.classRef!!.descriptor,
+            accessFlags = listOf(AccessFlags.PRIVATE, AccessFlags.FINAL),
+            returnType = "V",
+            parameters = listOf(resultsType),
+            filters = listOf(
+                fieldAccess(opcode = Opcode.IGET_OBJECT, definingClass = resultsType,
+                    type = protobufListIsModifiableMethod(dexkit).declaredClass!!.descriptor),
+                methodCall(opcode = Opcode.INVOKE_INTERFACE, name = "iterator", location = MatchAfterImmediately()),
+                fieldAccess(opcode = Opcode.IGET_OBJECT,
+                    type = RelatedItemSectionFingerprint.instructionMatches[1].instruction.fieldRef!!.declaredClass!!.descriptor)
+            )
+        ).match()
+    }
+
+val watchNextRowsMethod = findMethodDirect { watchNextRowsMatch().method }
+val watchNextSectionsField = findFieldDirect { watchNextRowsMatch().instructionMatches.first().instruction.fieldRef!! }

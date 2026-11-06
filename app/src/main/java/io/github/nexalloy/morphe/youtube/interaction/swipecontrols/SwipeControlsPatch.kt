@@ -1,6 +1,7 @@
 package io.github.nexalloy.morphe.youtube.interaction.swipecontrols
 
 import android.app.Activity
+import android.graphics.Point
 import android.os.Bundle
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -10,8 +11,11 @@ import app.morphe.extension.shared.settings.preference.SeekBarPreference
 import app.morphe.extension.youtube.settings.preference.SwipeVolumeStepsPreference
 import app.morphe.extension.youtube.settings.preference.SwipeZonePreference
 import app.morphe.extension.youtube.swipecontrols.SwipeControlsHostActivity
+import app.morphe.extension.youtube.swipecontrols.controller.SeekbarScrubber
+import app.morphe.extension.youtube.swipecontrols.controller.SwipeSeekController
 import de.robv.android.xposed.XposedHelpers
 import io.github.nexalloy.PatchExecutor
+import io.github.nexalloy.createProxy
 import io.github.nexalloy.hookMethod
 import io.github.nexalloy.morphe.shared.misc.settings.preference.InputType
 import io.github.nexalloy.morphe.shared.misc.settings.preference.ListPreference
@@ -19,6 +23,11 @@ import io.github.nexalloy.morphe.shared.misc.settings.preference.NonInteractiveP
 import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.TextPreference
 import io.github.nexalloy.morphe.youtube.insertLiteralOverride
+import io.github.nexalloy.morphe.youtube.interaction.seekbar.SeekbarUpdatePointFingerprint
+import io.github.nexalloy.morphe.youtube.interaction.seekbar.SlideSeekbarHandlerConstructorFingerprint
+import io.github.nexalloy.morphe.youtube.interaction.seekbar.slideSeekbarControllerField
+import io.github.nexalloy.morphe.youtube.interaction.seekbar.slideSeekbarModelField
+import io.github.nexalloy.morphe.youtube.interaction.seekbar.slideSeekbarViewField
 import io.github.nexalloy.morphe.youtube.misc.playertype.PlayerTypeHook
 import io.github.nexalloy.morphe.youtube.misc.playservice.VersionCheck
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_20_34_or_greater
@@ -30,7 +39,7 @@ import io.github.nexalloy.patch
 
 val SwipeControls = patch(
     name = "Swipe controls",
-    description = "Adds options to enable and configure volume and brightness swipe controls.",
+    description = "Adds options to enable and configure volume, brightness, playback speed and seek swipe controls.",
 ) {
     dependsOn(
         PlayerTypeHook,
@@ -60,6 +69,12 @@ val SwipeControls = patch(
             "morphe_swipe_top_zone",
             entriesKey = "morphe_swipe_zone_action_entries",
             entryValuesKey = "morphe_swipe_zone_action_entry_values"
+        ),
+        SwitchPreference("morphe_swipe_seek", summary = true),
+        NonInteractivePreference(
+            key = "morphe_swipe_seek_sensitivity",
+            tag = SeekBarPreference::class.java,
+            selectable = true,
         ),
         NonInteractivePreference(
             key = "morphe_swipe_zone_width",
@@ -130,6 +145,7 @@ val SwipeControls = patch(
     )
 
     hookSwipeControlsActivity(::mainActivityClass.clazz)
+    addSeekbarScrubber()
 
     if (!is_20_34_or_greater) {
         insertLiteralOverride(45631116L, SwipeControlsHostActivity::allowSwipeChangeVideo)
@@ -181,6 +197,49 @@ private fun PatchExecutor.hookSwipeControlsActivity(activityClass: Class<*>) {
         before {
             val event = it.args[0] as KeyEvent?
             if (event != null && host(it.thisObject).dispatchKeyEvent(event)) it.result = true
+        }
+    }
+}
+
+/** Scrubs the time bar through the same host methods as slide to seek. */
+private fun PatchExecutor.addSeekbarScrubber() {
+    val controller = ::slideSeekbarControllerField.field
+    val model = ::slideSeekbarModelField.field
+    val timeBar = ::slideSeekbarViewField.field
+    val point = ::scrubberPointField.field
+    val bounds = ::scrubberBoundsField.field
+    val updatePoint = SeekbarUpdatePointFingerprint.method
+    val methods = ::scrubberTimeBarMethods.dexMethodList.map { it.toMethod() }
+    val getBounds = methods[0]
+    val getTime = methods[1]
+    val start = methods[2]
+    val move = methods[3]
+    val complete = methods[4]
+    SlideSeekbarHandlerConstructorFingerprint.hookMethod {
+        after {
+            val proxy = it.thisObject.createProxy { handler ->
+                object : SeekbarScrubber {
+                    private fun scrubState(): Any = model.get(controller.get(checkNotNull(handler.get())))!!
+                    override fun patch_startScrub(): Int {
+                        val state = scrubState()
+                        val bar = timeBar.get(state)
+                        getBounds.invoke(bar, bounds.get(state))
+                        updatePoint.invoke(state)
+                        val x = (point.get(state) as Point).x
+                        start.invoke(bar, x)
+                        return x
+                    }
+                    override fun patch_moveScrub(x: Int): Long {
+                        val bar = timeBar.get(scrubState())
+                        move.invoke(bar, x)
+                        return getTime.invoke(bar) as Long
+                    }
+                    override fun patch_completeScrub(x: Int) {
+                        complete.invoke(timeBar.get(scrubState()), x)
+                    }
+                }
+            }
+            SwipeSeekController.setScrubber(proxy)
         }
     }
 }

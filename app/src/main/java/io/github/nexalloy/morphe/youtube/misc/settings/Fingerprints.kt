@@ -1,9 +1,12 @@
 package io.github.nexalloy.morphe.youtube.misc.settings
 
+import io.github.nexalloy.morphe.Fingerprint
 import io.github.nexalloy.morphe.findClassDirect
 import io.github.nexalloy.morphe.findMethodDirect
 import io.github.nexalloy.morphe.findMethodListDirect
+import io.github.nexalloy.morphe.methodCall
 import io.github.nexalloy.morphe.resourceMappings
+import io.github.nexalloy.morphe.string
 import java.lang.reflect.Modifier
 import org.luckypray.dexkit.query.enums.StringMatchType
 
@@ -65,3 +68,11 @@ val setThemeFingerprint = findMethodDirect {
         }
     }.single { it.returnTypeName != "void" }
 }
+
+internal object BottomUiContainerOnLayoutFingerprint : Fingerprint(
+    definingClass = "Lcom/google/android/apps/youtube/app/common/ui/bottomui/BottomUiContainer;",
+    name = "onLayout",
+    filters = listOf(
+        methodCall(smali = "Landroid/widget/FrameLayout;->onLayout(ZIIII)V")
+    )
+)

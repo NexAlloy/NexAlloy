@@ -14,6 +14,7 @@ import io.github.nexalloy.morphe.shared.misc.textcomponent.hookLithoSpannableStr
 import io.github.nexalloy.morphe.shared.misc.textcomponent.lithoSpannableStringPatch
 import io.github.nexalloy.morphe.youtube.misc.proto.elementProtoParserHookPatch
 import io.github.nexalloy.morphe.youtube.video.videoid.VideoId
+import io.github.nexalloy.morphe.youtube.video.videoid.hookBackgroundPlayVideoId
 import io.github.nexalloy.morphe.youtube.video.videoid.hookVideoId
 import io.github.nexalloy.patch
 import io.github.nexalloy.scopedHook
@@ -38,6 +39,7 @@ internal val videoTitlesHookPatch = patch(
     // The original description is fetched when the video is opened,
     // and replaced when the description panel is opened.
     hookVideoId(RestoreOriginalTitlesPatch::newVideoLoaded)
+    hookBackgroundPlayVideoId(RestoreOriginalTitlesPatch::newVideoLoaded)
 
     // The title of the media notification.
     val setMetadata = MediaSession::class.java.getMethod("setMetadata", MediaMetadata::class.java)

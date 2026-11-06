@@ -170,8 +170,8 @@ val Downloads = patch(
 
     // Keep download authentication headers without starting playback spoof requests.
     hookBuildRequest { url, headers ->
-        if (url != null && headers != null && Uri.parse(url).path?.endsWith("/player") == true) {
-            StreamingDataRequest.setPlayerHeaders(headers)
+        if (url != null && headers != null && Uri.parse(url).path?.startsWith("/youtubei/") == true) {
+            StreamingDataRequest.setAppHeaders(headers)
         }
         headers
     }

@@ -9,7 +9,6 @@ import io.github.nexalloy.morphe.youtube.misc.settings.PreferenceScreen
 import io.github.nexalloy.patch
 import io.github.nexalloy.scopedHook
 
-
 val changeStartPagePatch = patch(
     name = "Change start page",
     description = "Adds an option to set which page the app opens in instead of the homepage.",
@@ -37,5 +36,15 @@ val changeStartPagePatch = patch(
             ChangeStartPagePatch.overrideIntentAction(it.args[0] as Intent)
         }
     }
+
+    // Without a guide in the cache, the top bar and the navigation bar wait for a milestone
+    // that is reached when the homepage is shown.
+    GuideRequestFingerprint.hookMethod(scopedHook(::guideMilestoneMethod.method) {
+        after {
+            if (it.args[0] == 1074004527 || it.args[0] == 268698159) {
+                it.result = ChangeStartPagePatch.overrideGuideMilestone(it.result as Int)
+            }
+        }
+    })
 
 }

@@ -7,6 +7,7 @@
 
 package io.github.nexalloy.morphe.youtube.misc.fix.guidecache
 
+import io.github.nexalloy.RequireAppVersion
 import io.github.nexalloy.morphe.AccessFlags
 import io.github.nexalloy.morphe.Fingerprint
 import io.github.nexalloy.morphe.InstructionLocation.MatchAfterImmediately
@@ -16,7 +17,7 @@ import io.github.nexalloy.morphe.literal
 import io.github.nexalloy.morphe.methodCall
 import io.github.nexalloy.morphe.opcode
 
-@io.github.nexalloy.RequireAppVersion(minVersion = "21.28.000", maxVersion = "21.31.000")
+@RequireAppVersion(minVersion = "21.28.000", maxVersion = "21.31.000")
 internal object GuideResponseAccountFingerprint : Fingerprint(
     accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
     returnType = "Lcom/google/common/util/concurrent/ListenableFuture;",
@@ -33,7 +34,7 @@ internal object GuideResponseAccountFingerprint : Fingerprint(
     )
 )
 
-@get:io.github.nexalloy.RequireAppVersion(minVersion = "21.28.000", maxVersion = "21.31.000")
+@get:RequireAppVersion(minVersion = "21.28.000", maxVersion = "21.31.000")
 internal val guideAccountCheckMethods = io.github.nexalloy.morphe.findMethodListDirect {
     val called = GuideResponseAccountFingerprint.instructionMatches[1].instruction.methodRef!!
     val owner = called.declaredClass!!.descriptor
