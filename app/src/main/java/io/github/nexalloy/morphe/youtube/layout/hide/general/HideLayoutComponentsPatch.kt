@@ -2,7 +2,9 @@
 
 package io.github.nexalloy.morphe.youtube.layout.hide.general
 
+import android.view.Menu
 import android.view.View
+import android.view.ViewGroup
 import android.widget.TextView
 import app.morphe.extension.shared.ResourceUtils.getDimenIdentifier
 import app.morphe.extension.shared.ResourceUtils.getIdIdentifier
@@ -19,6 +21,7 @@ import app.morphe.extension.youtube.patches.spans.SearchLinksFilter
 import app.morphe.extension.youtube.settings.preference.HTMLPreference
 import app.morphe.extension.youtube.settings.preference.KeywordContentStatsPreferenceCategory
 import com.google.protobuf.CodedInputStream
+import io.github.nexalloy.hookMethod
 import io.github.nexalloy.morphe.shared.misc.litho.filter.addLithoFilter
 import io.github.nexalloy.morphe.shared.misc.litho.filter.emptyComponentClass
 import io.github.nexalloy.morphe.shared.misc.litho.node.hookTreeNodeResult
@@ -483,6 +486,27 @@ val HideLayoutComponents = patch(
 
     // endregion
 
+    // region collapse filtered boxes of the fullscreen engagement panel
+
+    // The box keeps its rounded border and padding when the element in it is filtered.
+    val measure = MetadataHighlightsColumnMeasureFingerprint.method
+    val superMeasure = measure.declaringClass.superclass.getDeclaredMethod(
+        "onMeasure", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType
+    )
+    val setMeasuredDimension = View::class.java.getDeclaredMethod(
+        "setMeasuredDimension", Int::class.javaPrimitiveType, Int::class.javaPrimitiveType
+    ).apply { isAccessible = true }
+    measure.hookMethod(scopedHook(superMeasure) {
+        after {
+            if (it.thisObject === outerParam.thisObject && !it.hasThrowable() &&
+                LayoutComponentsFilter.isEngagementPanelBoxEmpty(it.thisObject as ViewGroup)) {
+                setMeasuredDimension.invoke(it.thisObject, 0, 0)
+            }
+        }
+    })
+
+    // endregion
+
     // TODO hide floating microphone
 
     // hide latest videos button
@@ -533,6 +557,30 @@ val HideLayoutComponents = patch(
             }
         }
     })
+
+    // The list popup menu ignores the zero height of a hidden item and only keeps its text hidden,
+    // so the filtered items are left out of the items of the popup menus instead.
+    val menuTitle = ::contextualMenuItemTextFingerprint.method
+    LayoutComponentsFilter.flyoutMenuItemAdapter = java.util.function.Function { item ->
+        if (menuTitle.parameterTypes.single().isInstance(item)) {
+            LayoutComponentsFilter.FlyoutMenuItem { menuTitle.invoke(null, item) as? CharSequence }
+        } else null
+    }
+    MenuItemListBuilderFingerprint.hookMethod(scopedHook(::menuItemsCollectorMethod.method) {
+        before {
+            it.args[0] = LayoutComponentsFilter.hideFlyoutMenuItems(it.args[0] as Iterable<*>)
+        }
+    })
+
+    ::actionBarMenuAddMethods.dexMethodList.forEach { addMethod ->
+        ActionBarMenuBuilderFingerprint.hookMethod(scopedHook(addMethod.toMethod()) {
+            after {
+                if (innerDepth == 0 && !it.hasThrowable()) {
+                    LayoutComponentsFilter.hideFlyoutMenu(it.thisObject as Menu, it.args[1] as Int, it.args[3] as? CharSequence)
+                }
+            }
+        })
+    }
 
     // endregion
 

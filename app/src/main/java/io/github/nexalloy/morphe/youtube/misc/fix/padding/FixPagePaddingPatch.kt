@@ -15,6 +15,7 @@ internal val fixPagePaddingPatch = patch {
     // which leaves wrong padding in some pages, such as the incognito search. It is turned off.
     if (is_21_07_or_greater) {
         insertLiteralOverride(45724388L, false)
+        insertLiteralOverride(45794752L, false)
     }
 
     // The keyboard branch reads its insets before constructing the bottom-margin update.

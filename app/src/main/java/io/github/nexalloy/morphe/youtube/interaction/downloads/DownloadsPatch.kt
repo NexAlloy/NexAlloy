@@ -97,6 +97,7 @@ val Downloads = patch(
         }
     }
 
+    setExtensionIsPatchIncluded(DownloadsPatch::class.java)
     setExtensionIsPatchIncluded(ShortsDownloadButton::class.java)
     setExtensionIsPatchIncluded(ExportDownloadButton::class.java)
 

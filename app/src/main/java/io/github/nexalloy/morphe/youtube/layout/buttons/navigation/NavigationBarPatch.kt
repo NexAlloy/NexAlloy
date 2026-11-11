@@ -13,7 +13,7 @@ import app.morphe.extension.youtube.innertube.GuideResponseOuterClass.PivotBarIt
 import app.morphe.extension.youtube.innertube.GuideResponseOuterClass.PivotBarItemRenderer
 import app.morphe.extension.youtube.patches.ClassicSubscriptionsLayoutPatch
 import app.morphe.extension.youtube.patches.NavigationBarPatch
-import app.morphe.extension.youtube.settings.preference.GlassNavigationBarPreference
+import app.morphe.extension.youtube.settings.preference.YouTubeGlassNavigationBarPreference
 import app.morphe.extension.youtube.settings.preference.NavigationButtonsOrderPreference
 import com.google.protobuf.ExtensionRegistryLite
 import com.google.protobuf.MessageLite
@@ -132,7 +132,7 @@ val NavigationBar = patch(
 //            key = "morphe_navigation_bar_glass_height",
 //            titleKey = "morphe_navigation_bar_glass_size_title",
 //            summaryKey = "morphe_navigation_bar_glass_size_summary",
-//            tag = GlassNavigationBarPreference::class.java,
+//            tag = YouTubeGlassNavigationBarPreference::class.java,
 //            selectable = true
 //        )
     )

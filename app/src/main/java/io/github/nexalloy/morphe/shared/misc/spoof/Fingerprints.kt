@@ -5,6 +5,7 @@ import io.github.nexalloy.morphe.Fingerprint
 import io.github.nexalloy.morphe.InstructionLocation.MatchAfterImmediately
 import io.github.nexalloy.morphe.Opcode
 import io.github.nexalloy.morphe.fieldAccess
+import io.github.nexalloy.morphe.findMethodDirect
 import io.github.nexalloy.morphe.findFieldDirect
 import io.github.nexalloy.morphe.findMethodListDirect
 import io.github.nexalloy.morphe.methodCall
@@ -147,4 +148,25 @@ internal object PriorityTooLowExceptionFingerprint : Fingerprint(
 
 val cronetRemainingBytesField = findFieldDirect {
     CronetDataSourceReadFingerprint.instructionMatches.last().instruction.fieldRef!!
+}
+
+internal object InvalidResponseCodeExceptionFingerprint : Fingerprint(
+    name = "<init>",
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.CONSTRUCTOR),
+    returnType = "V",
+    parameters = listOf("I", "Ljava/io/IOException;", "Ljava/util/Map;", "L"),
+    filters = listOf(
+        string("Response code: ")
+    )
+)
+
+val cronetReadResponseMethod = findMethodDirect {
+    CronetDataSourceReadFingerprint.instructionMatches[1].instruction.methodRef!!
+}
+
+val cronetDataSpecField = findFieldDirect {
+    val dataSpecType = cronetReadResponseMethod().paramTypes[1].descriptor
+    CronetDataSourceReadFingerprint().declaredClass!!.fields.single {
+        it.type.descriptor == dataSpecType
+    }
 }

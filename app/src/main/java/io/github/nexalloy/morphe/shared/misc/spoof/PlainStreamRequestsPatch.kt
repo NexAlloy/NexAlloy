@@ -5,6 +5,7 @@ import io.github.nexalloy.HookDsl
 import io.github.nexalloy.IScopedHookCallback
 import io.github.nexalloy.patch
 import io.github.nexalloy.scopedHook
+import java.nio.ByteBuffer
 
 // The Cronet hooks are shared with stream spoofing upstream; downloads use them independently.
 val plainStreamRequestsPatch = patch {
@@ -35,18 +36,32 @@ val plainStreamRequestsPatch = patch {
     CronetUrlRequestBuildFingerprint.hookMethod(scopedHook(*createRequestHooks))
 
     // A shortened response must pause the transfer so saving continues from the last byte read.
+    // The server can also answer a range with only a SABR error and no media. Instead of requesting
+    // that range over and over, fail like a server error so the app tries a fallback host.
     val remainingBytes = ::cronetRemainingBytesField.field
     val pauseTransfer = PriorityTooLowExceptionFingerprint.constructor
+    val serverError = InvalidResponseCodeExceptionFingerprint.constructor
+    val dataSpec = ::cronetDataSpecField.field
     listOf(CronetDataSourceReadFingerprint, CronetDataSourceReadBufferFingerprint).forEach { fingerprint ->
+        fingerprint.hookMethod(scopedHook(::cronetReadResponseMethod.method) {
+            before { SpoofVideoStreamsPatch.onStreamResponseReadStart(it.args[0] as ByteBuffer) }
+            after {
+                if (!it.hasThrowable()) SpoofVideoStreamsPatch.onStreamResponseRead(it.args[0] as ByteBuffer)
+            }
+        })
         fingerprint.hookMethod {
             before {
-                if (SpoofVideoStreamsPatch.isLimitedStreamRangeFinished(remainingBytes.getLong(it.thisObject))) {
+                if (SpoofVideoStreamsPatch.isStreamSabrErrorResponse()) {
+                    it.throwable = serverError.newInstance(503, null, emptyMap<Any, Any>(), dataSpec.get(it.thisObject)) as Throwable
+                } else if (SpoofVideoStreamsPatch.isLimitedStreamRangeFinished(remainingBytes.getLong(it.thisObject))) {
                     it.throwable = pauseTransfer.newInstance(0, 0) as Throwable
                 }
             }
             after {
                 // A successful read still delivers its bytes; the next read pauses at entry.
-                if (!it.hasThrowable() && it.result == -1 &&
+                if (!it.hasThrowable() && SpoofVideoStreamsPatch.isStreamSabrErrorResponse()) {
+                    it.throwable = serverError.newInstance(503, null, emptyMap<Any, Any>(), dataSpec.get(it.thisObject)) as Throwable
+                } else if (!it.hasThrowable() && it.result == -1 &&
                     SpoofVideoStreamsPatch.isLimitedStreamRangeFinished(remainingBytes.getLong(it.thisObject))
                 ) {
                     it.throwable = pauseTransfer.newInstance(0, 0) as Throwable

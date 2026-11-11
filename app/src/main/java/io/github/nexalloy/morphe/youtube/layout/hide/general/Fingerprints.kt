@@ -227,3 +227,58 @@ val entityMutationBytesMethod = findMethodDirect {
             it.returnType!!.descriptor == "[B" && it.paramTypes.isEmpty()
     }
 }
+
+internal object MenuItemListBuilderFingerprint : Fingerprint(
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
+    returnType = "L",
+    parameters = listOf("L", "Ljava/lang/Object;", "L", "L"),
+    filters = listOf(
+        methodCall(smali = "Ljava/util/List;->iterator()Ljava/util/Iterator;"),
+        methodCall(smali = "Ljava/util/Iterator;->hasNext()Z"),
+        methodCall(smali = "Ljava/util/Iterator;->next()Ljava/lang/Object;"),
+        opcode(Opcode.MOVE_RESULT_OBJECT, location = MatchAfterImmediately()),
+        opcode(Opcode.CHECK_CAST, location = MatchAfterImmediately()),
+        methodCall(
+            opcode = Opcode.INVOKE_STATIC,
+            parameters = listOf("L", "Ljava/lang/Object;", "L", "L"),
+            returnType = "L",
+            location = MatchAfterImmediately()
+        ),
+        opcode(Opcode.MOVE_RESULT_OBJECT, location = MatchAfterImmediately()),
+        methodCall(parameters = listOf("Ljava/lang/Iterable;"), location = MatchAfterImmediately())
+    )
+)
+
+internal object ActionBarMenuBuilderFingerprint : Fingerprint(
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
+    returnType = "V",
+    filters = listOf(
+        methodCall(smali = "Landroid/util/SparseArray;->size()I"),
+        methodCall(smali = "Landroid/view/MenuInflater;->inflate(ILandroid/view/Menu;)V"),
+        methodCall(smali = "Landroid/view/Menu;->add(IIILjava/lang/CharSequence;)Landroid/view/MenuItem;")
+    )
+)
+
+internal object MetadataHighlightsColumnMeasureFingerprint : Fingerprint(
+    definingClass = "Lcom/google/android/apps/youtube/app/player/overlay/fullscreenengagement/layout/MetadataHighlightsColumnLinearLayout;",
+    name = "onMeasure",
+    returnType = "V",
+    parameters = listOf("I", "I")
+)
+
+val menuItemsCollectorMethod = findMethodDirect {
+    MenuItemListBuilderFingerprint.instructionMatches.last().instruction.methodRef!!
+}
+
+val actionBarMenuAddMethods = findMethodListDirect {
+    fun implementsMenu(type: org.luckypray.dexkit.result.ClassData): Boolean =
+        type.descriptor == "Landroid/view/Menu;" || type.interfaces.any(::implementsMenu) ||
+                type.superClass?.let(::implementsMenu) == true
+    Fingerprint(
+        name = "add",
+        parameters = listOf("I", "I", "I", "Ljava/lang/CharSequence;"),
+        returnType = "Landroid/view/MenuItem;"
+    ).matchAll().map { it.method }.filter {
+        !java.lang.reflect.Modifier.isAbstract(it.modifiers) && implementsMenu(it.declaredClass!!)
+    }.also { check(it.isNotEmpty()) }
+}

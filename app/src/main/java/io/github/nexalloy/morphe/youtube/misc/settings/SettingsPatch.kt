@@ -143,6 +143,8 @@ val SettingsHook = patch(
     )
 
     PreferenceScreen.MISC.addPreferences(
+        // TODO Patch update notices need the upstream lifecycle and release channel integration.
+        // ListPreference("morphe_patches_update_notice"),
         NonInteractivePreference(
             key = "morphe_settings_new_indicator_days",
             tag = SeekBarPreference::class.java,

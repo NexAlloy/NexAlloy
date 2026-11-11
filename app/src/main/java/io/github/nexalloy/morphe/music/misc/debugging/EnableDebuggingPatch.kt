@@ -4,7 +4,7 @@ import io.github.nexalloy.morphe.music.misc.playservice.is_9_37_or_greater
 import io.github.nexalloy.morphe.music.misc.playservice.versionCheckPatch
 import io.github.nexalloy.morphe.music.misc.settings.PreferenceScreen
 import io.github.nexalloy.morphe.shared.misc.debugging.enableDebuggingPatch
-import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
+import io.github.nexalloy.morphe.shared.misc.settings.preference.ListPreference
 
 val EnableDebugging = enableDebuggingPatch(
     block = { dependsOn(versionCheckPatch) },
@@ -19,9 +19,6 @@ val EnableDebugging = enableDebuggingPatch(
     },
     preferenceScreen = PreferenceScreen.MISC,
     additionalDebugPreferences = listOf(
-        SwitchPreference(
-            "morphe_debug_protobuffer",
-            summary = true
-        )
+        ListPreference("morphe_debug_litho")
     )
 )

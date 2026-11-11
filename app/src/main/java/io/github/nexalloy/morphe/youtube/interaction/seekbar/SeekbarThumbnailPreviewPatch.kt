@@ -9,6 +9,10 @@ package io.github.nexalloy.morphe.youtube.interaction.seekbar
 
 import android.graphics.Bitmap
 import android.graphics.Point
+import android.graphics.BitmapRegionDecoder
+import android.graphics.Rect
+import android.util.LruCache
+import android.widget.ImageView
 import android.support.v7.widget.RecyclerView
 import android.view.MotionEvent
 import android.view.View
@@ -24,6 +28,7 @@ import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_21_or_greater
 import io.github.nexalloy.morphe.youtube.misc.settings.PreferenceScreen
 import io.github.nexalloy.morphe.youtube.video.information.VideoInformationPatch
 import io.github.nexalloy.patch
+import io.github.nexalloy.scopedHook
 
 val seekbarThumbnailPreviewPatch = patch(
     description = "Adds an option to restore the seekbar thumbnail preview."
@@ -65,6 +70,37 @@ val seekbarThumbnailPreviewPatch = patch(
     SeekbarFineScrubbingBitmapFingerprint.hookMethod {
         before { SeekbarThumbnailPreviewPatch.setFineScrubbingPreviewBitmap(it.args[0] as? Bitmap) }
     }
+
+    // The app cuts storyboard frames with the frame size of the storyboard spec,
+    // which can be smaller than the frames of the storyboard image.
+    StoryboardFrameRegionFingerprint.hookMethod(scopedHook(
+        LruCache::class.java.getDeclaredMethod("get", Any::class.java)
+    ) {
+        after {
+            if (it.result is BitmapRegionDecoder) {
+                outerParam.setObjectExtra("storyboardDecoder", it.result)
+            }
+        }
+    })
+    StoryboardFrameRegionFingerprint.hookMethod(scopedHook(::storyboardFrameRectMethod.method) {
+        after {
+            val decoder = outerParam.getObjectExtra("storyboardDecoder") as? BitmapRegionDecoder ?: return@after
+            if (!it.hasThrowable()) {
+                SeekbarThumbnailPreviewPatch.fixStoryboardFrameRect(it.result as Rect, decoder)
+            }
+        }
+    })
+
+    // The full screen seek preview fits in the player, also when the video is zoomed to fill the screen.
+    // Scale it to the video when it is shown.
+    val bigBoardImage = ::bigBoardImageField.field
+    SeekbarBigBoardsScrubFingerprint.hookMethod(scopedHook(::bigBoardVisibilityMethod.method) {
+        after {
+            if (!it.hasThrowable() && outerParam.args[0] == 1 && it.args[1] == true) {
+                SeekbarThumbnailPreviewPatch.setBigBoardScale(bigBoardImage.get(outerParam.thisObject) as? ImageView)
+            }
+        }
+    })
 
     ::seekbarOnDrawFingerprint.hookMethod {
         before { SeekbarThumbnailPreviewPatch.setSeekbarRectangle(it.thisObject as View) }

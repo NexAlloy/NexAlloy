@@ -5,6 +5,7 @@ import android.media.session.MediaSession
 import android.view.View
 import android.widget.TextView
 import app.morphe.extension.youtube.patches.originaltitles.RestoreOriginalTitlesPatch
+import io.github.nexalloy.PatchExecutor
 import io.github.nexalloy.morphe.ResourceType
 import io.github.nexalloy.morphe.getResourceId
 import io.github.nexalloy.morphe.shared.MediaSessionSetMetadataFingerprint
@@ -73,18 +74,7 @@ internal val videoTitlesHookPatch = patch(
     val findViewById = View::class.java.getMethod("findViewById", Int::class.javaPrimitiveType)
 
     // Compact videos do not use Litho, such as the videos of the watch history.
-    val compactId = ::compactVideoIdField.field
-    val compactTitle = ::compactVideoTitleViewField.field
-    CompactVideoBindFingerprint.hookMethod(scopedHook(::compactVideoTitleSetter.method) {
-        after {
-            if (innerDepth == 0 && !it.hasThrowable()) {
-                RestoreOriginalTitlesPatch.restoreOriginalTitle(
-                    compactTitle.get(it.thisObject) as? TextView,
-                    compactId.get(outerParam.args[1]) as? String
-                )
-            }
-        }
-    })
+    hookCompactVideoTitle(RestoreOriginalTitlesPatch::restoreOriginalTitle)
 
     // The suggested video at the end of a video in fullscreen does not use Litho.
     val rendererGetter = ::suggestedVideoRendererGetter.method
@@ -154,4 +144,20 @@ internal val videoTitlesHookPatch = patch(
             }
         })
     }
+}
+
+/** Calls the extension after the title of a compact video is set. */
+internal fun PatchExecutor.hookCompactVideoTitle(callback: (TextView?, String?) -> Unit) {
+    val compactId = ::compactVideoIdField.field
+    val compactTitle = ::compactVideoTitleViewField.field
+    CompactVideoBindFingerprint.hookMethod(scopedHook(::compactVideoTitleSetter.method) {
+        after {
+            if (innerDepth == 0 && !it.hasThrowable()) {
+                callback(
+                    compactTitle.get(it.thisObject) as? TextView,
+                    compactId.get(outerParam.args[1]) as? String
+                )
+            }
+        }
+    })
 }

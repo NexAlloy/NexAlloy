@@ -1,7 +1,7 @@
 package io.github.nexalloy.morphe.youtube.misc.debugging
 
 import io.github.nexalloy.morphe.shared.misc.debugging.enableDebuggingPatch
-import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
+import io.github.nexalloy.morphe.shared.misc.settings.preference.ListPreference
 import io.github.nexalloy.morphe.youtube.misc.playservice.VersionCheck
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_20_40_or_greater
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_20_41_or_greater
@@ -24,9 +24,6 @@ val EnableDebugging = enableDebuggingPatch(
     },
     preferenceScreen = PreferenceScreen.MISC,
     additionalDebugPreferences = listOf(
-        SwitchPreference(
-            "morphe_debug_protobuffer",
-            summary = true
-        )
+        ListPreference("morphe_debug_litho")
     )
 )

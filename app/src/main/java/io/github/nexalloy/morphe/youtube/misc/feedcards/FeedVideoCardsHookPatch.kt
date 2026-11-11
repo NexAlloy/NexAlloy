@@ -2,6 +2,7 @@ package io.github.nexalloy.morphe.youtube.misc.feedcards
 
 import app.morphe.extension.youtube.patches.utils.FeedVideoCardsPatch
 import com.facebook.litho.ComponentHost
+import io.github.nexalloy.morphe.youtube.layout.originaltitles.hookCompactVideoTitle
 import io.github.nexalloy.morphe.shared.misc.proto.hookElement
 import io.github.nexalloy.morphe.youtube.misc.playertype.PlayerTypeHook
 import io.github.nexalloy.morphe.youtube.misc.proto.elementProtoParserHookPatch
@@ -35,4 +36,6 @@ internal val feedVideoCardsHookPatch = patch(
             }
         }
     }
+    // Compact videos are not drawn by Litho, such as the videos of the watch history.
+    hookCompactVideoTitle(FeedVideoCardsPatch::onCompactVideoBound)
 }

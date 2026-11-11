@@ -301,6 +301,8 @@ internal object StickyHeadersFingerprint : Fingerprint(
  * Restores the alpha and the visibility of the list item hidden while its sticky copy is shown.
  */
 @TargetApp("youtube")
+// NexAlloy: Older versions need instruction ordering to distinguish restoring from hiding.
+@StrictQuery
 internal object StickyHeaderRestoreItemFingerprint : Fingerprint(
     classFingerprint = StickyHeadersFingerprint,
     returnType = "V",

@@ -28,6 +28,21 @@ val navigationBarPatch = patch(
                 SwitchPreference("morphe_music_hide_navigation_bar_upgrade_button"),
                 SwitchPreference("morphe_music_hide_navigation_bar"),
                 SwitchPreference("morphe_music_hide_navigation_bar_labels"),
+                // TODO Glass navigation bar: floating miniplayer margins and content measurement.
+                // SwitchPreference("morphe_music_navigation_bar_glass", summary = true),
+                // NonInteractivePreference(
+                //     key = "morphe_music_navigation_bar_glass_opacity",
+                //     tag = app.morphe.extension.shared.settings.preference.SeekBarPreference::class.java
+                // ),
+                // SwitchPreference("morphe_music_navigation_bar_glass_light", summary = true),
+                // Height, width and button spacing, with a preview.
+                // NonInteractivePreference(
+                //     key = "morphe_music_navigation_bar_glass_height",
+                //     titleKey = "morphe_music_navigation_bar_glass_size_title",
+                //     summaryKey = "morphe_music_navigation_bar_glass_size_summary",
+                //     tag = app.morphe.extension.music.settings.preference.MusicGlassNavigationBarPreference::class.java,
+                //     selectable = true
+                // ),
             )
         )
     )

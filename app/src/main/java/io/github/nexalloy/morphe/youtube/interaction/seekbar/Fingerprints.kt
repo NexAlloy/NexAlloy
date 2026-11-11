@@ -432,3 +432,67 @@ internal object SlideSeekbarHandlerConstructorFingerprint : Fingerprint (
         resourceLiteral(ResourceType.DIMEN, "seek_easy_horizontal_touch_offset_to_start_scrubbing")
     )
 )
+
+internal object StoryboardFrameRegionFingerprint : Fingerprint (
+    returnType = "Landroid/graphics/Bitmap;",
+    parameters = listOf("L", "I", "Landroid/graphics/Bitmap;"),
+    filters = listOf(
+        methodCall(
+            opcode = Opcode.INVOKE_VIRTUAL,
+            parameters = listOf("I"),
+            returnType = "Landroid/graphics/Rect;"
+        ),
+        opcode(opcode = Opcode.MOVE_RESULT_OBJECT, location = MatchAfterImmediately()),
+        methodCall(
+            smali = $$"Landroid/graphics/BitmapRegionDecoder;->decodeRegion(Landroid/graphics/Rect;Landroid/graphics/BitmapFactory$Options;)Landroid/graphics/Bitmap;"
+        ),
+        string("Storyboard regionDecoder.decodeRegion exception - ")
+    )
+)
+
+internal object SeekbarBigBoardsScaleTypeFingerprint : Fingerprint (
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "V",
+    parameters = listOf("Z"),
+    filters = listOf(
+        fieldAccess(
+            opcode = Opcode.SGET_OBJECT,
+            smali = $$"Landroid/widget/ImageView$ScaleType;->CENTER_CROP:Landroid/widget/ImageView$ScaleType;"
+        ),
+        fieldAccess(
+            opcode = Opcode.SGET_OBJECT,
+            smali = $$"Landroid/widget/ImageView$ScaleType;->FIT_CENTER:Landroid/widget/ImageView$ScaleType;"
+        )
+    )
+)
+
+internal object SeekbarBigBoardsScrubFingerprint : Fingerprint (
+    classFingerprint = SeekbarBigBoardsScaleTypeFingerprint,
+    returnType = "V",
+    parameters = listOf("I", "J"),
+    filters = listOf(
+        methodCall(
+            opcode = Opcode.INVOKE_DIRECT,
+            definingClass = "this",
+            parameters = listOf("J"),
+            returnType = "V"
+        )
+    )
+)
+
+val storyboardFrameRectMethod = findMethodDirect {
+    StoryboardFrameRegionFingerprint.instructionMatches.first().instruction.methodRef!!
+}
+
+val bigBoardImageField = findFieldDirect {
+    SeekbarBigBoardsScrubFingerprint().declaredClass!!.fields.single {
+        it.type.descriptor == "Landroid/widget/ImageView;"
+    }
+}
+
+val bigBoardVisibilityMethod = findMethodDirect {
+    SeekbarBigBoardsScrubFingerprint().invokes.filter {
+        it.paramTypes.map { type -> type.descriptor } == listOf("Landroid/view/View;", "Z") &&
+                it.returnType!!.descriptor == "V"
+    }.distinct().single()
+}
