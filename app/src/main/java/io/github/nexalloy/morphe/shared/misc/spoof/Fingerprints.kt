@@ -76,7 +76,7 @@ internal val cronetHttpMethodField = findFieldDirect {
 }
 
 internal object CronetDataSourceReadFingerprint : Fingerprint(
-    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    // NexAlloy: Match both final and non-final Cronet read implementations.
     returnType = "I",
     parameters = listOf("[B", "I", "I"),
     filters = listOf(
@@ -107,7 +107,6 @@ internal object CronetDataSourceReadFingerprint : Fingerprint(
 
 internal object CronetDataSourceReadBufferFingerprint : Fingerprint(
     classFingerprint = CronetDataSourceReadFingerprint,
-    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
     returnType = "I",
     parameters = listOf("Ljava/nio/ByteBuffer;"),
     filters = listOf(

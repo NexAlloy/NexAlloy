@@ -7,6 +7,7 @@ import io.github.nexalloy.morphe.InstructionLocation.MatchAfterImmediately
 import io.github.nexalloy.morphe.InstructionLocation.MatchAfterWithin
 import io.github.nexalloy.morphe.Opcode
 import io.github.nexalloy.morphe.ResourceType
+import io.github.nexalloy.morphe.StrictQuery
 import io.github.nexalloy.morphe.StringComparisonType
 import io.github.nexalloy.morphe.checkCast
 import io.github.nexalloy.morphe.fieldAccess
@@ -94,6 +95,8 @@ val bottomSheetMenuItemTextFingerprint = findMethodDirect {
     }.distinct().single()
 }
 
+// NexAlloy: The text color resource is shared; validate the complete text binding sequence.
+@StrictQuery
 internal object ContextualMenuItemBuilderFingerprint : Fingerprint(
     accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL, AccessFlags.SYNTHETIC),
     returnType = "V",
@@ -120,7 +123,7 @@ internal object ContextualMenuItemBuilderFingerprint : Fingerprint(
             returnType = "I",
             location = MatchAfterWithin(7),
         ),
-        resourceLiteral(ResourceType.DIMEN, "poster_art_width_default"),
+        resourceLiteral(ResourceType.ATTR, "ytTextPrimary"),
     )
 )
 
@@ -137,10 +140,10 @@ internal object ContextualMenuItemBuilderOnClickFingerprint : Fingerprint(
     name = "onClick",
     parameters = listOf("Landroid/view/View;"),
     filters = listOf(
+        // NexAlloy: R8 may retain the protobuf base type instead of erasing it to Object.
         fieldAccess(
             opcode = Opcode.IGET_OBJECT,
-            definingClass = "this",
-            type = "Ljava/lang/Object;"
+            definingClass = "this"
         ),
         opcode(Opcode.CHECK_CAST, location = MatchAfterImmediately()),
         opcode(Opcode.INVOKE_STATIC, location = MatchAfterImmediately()),
