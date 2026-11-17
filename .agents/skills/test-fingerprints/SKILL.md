@@ -16,6 +16,10 @@ working directory. APKs are ignored by Git; use ignored `captures/` for logs and
 temporary inspection output. Keep patched comparison APKs outside the active
 test input tree.
 
+For missing original APKs, use [download-apks](../download-apks/SKILL.md) to obtain
+the latest and Morphe supported/experimental versions, reusing its tracked
+version-name/code cache before querying APKMirror.
+
 ## File names and application folders
 
 The APK's **file name must start with a recognized package name**. The test uses
