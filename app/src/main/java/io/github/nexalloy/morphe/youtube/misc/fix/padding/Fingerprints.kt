@@ -11,7 +11,8 @@ import io.github.nexalloy.morphe.findMethodDirect
 import io.github.nexalloy.morphe.methodCall
 import io.github.nexalloy.morphe.opcode
 
-internal object PageBottomMarginFingerprint : Fingerprint(
+@RequireAppVersion(maxVersion = "21.46.000")
+internal object PageBottomMarginLegacyFingerprint : Fingerprint(
     returnType = "V",
     parameters = listOf("Landroid/graphics/Rect;"),
     filters = listOf(
@@ -27,6 +28,32 @@ internal object PageBottomMarginFingerprint : Fingerprint(
         )
     )
 )
+
+@RequireAppVersion(minVersion = "21.46.000")
+internal object PageBottomMarginFingerprint : Fingerprint(
+    returnType = "V",
+    parameters = listOf("Landroid/graphics/Rect;", "Z"),
+    filters = listOf(
+        methodCall(smali = "Landroid/view/View;->findFocus()Landroid/view/View;"),
+        methodCall(
+            smali = "Landroid/view/View;->onCheckIsTextEditor()Z",
+            location = MatchAfterWithin(5)
+        ),
+        fieldAccess(opcode = Opcode.IGET, definingClass = "Landroid/graphics/Rect;", name = "bottom"),
+        methodCall(
+            opcode = Opcode.INVOKE_STATIC,
+            parameters = listOf("Landroid/view/View;"),
+            returnType = "I",
+            location = MatchAfterWithin(10)
+        ),
+        opcode(Opcode.MOVE_RESULT, location = MatchAfterImmediately())
+    )
+)
+
+@get:RequireAppVersion(minVersion = "21.46.000")
+internal val pageKeyboardHeightMethod = findMethodDirect {
+    PageBottomMarginFingerprint.instructionMatches[3].instruction.methodRef!!
+}
 
 @RequireAppVersion(minVersion = "20.26.000")
 @StrictQuery
@@ -79,16 +106,18 @@ internal val browseListSetPaddingMethod = findMethodDirect {
 }
 
 
+@get:RequireAppVersion(maxVersion = "21.46.000")
 internal val pageBottomMarginConstructor = findMethodDirect {
-    val match = PageBottomMarginFingerprint.match()
+    val match = PageBottomMarginLegacyFingerprint.match()
     match.method.instructions.drop(match.instructionMatches.last().index + 1).first {
         it.methodRef?.name == "<init>" &&
                 it.methodRef?.paramTypes?.map { it.descriptor } == listOf("I", "I", "[B")
     }.methodRef!!
 }
 
+@get:RequireAppVersion(maxVersion = "21.46.000")
 internal val pageKeyboardInsetsMethod = findMethodDirect {
-    val match = PageBottomMarginFingerprint.match()
+    val match = PageBottomMarginLegacyFingerprint.match()
     val instructions = match.method.instructions
     // Newer targets read the keyboard inset through a helper without calling getRootView.
     // Both forms occur only on the keyboard branch, immediately before the Rect.bottom fallback.

@@ -116,6 +116,9 @@ var is_21_42_or_greater : Boolean by Delegates.notNull()
 var is_21_43_or_greater : Boolean by Delegates.notNull()
     private set
 
+var is_21_46_or_greater: Boolean by Delegates.notNull()
+    private set
+
 val VersionCheck = patch {
     val versionName = appContext.packageManager
         .getPackageInfo(appContext.packageName, 0).versionName!!
@@ -176,4 +179,5 @@ val VersionCheck = patch {
     is_21_41_or_greater = isEqualsOrGreaterThan("21.41.000")
     is_21_42_or_greater = isEqualsOrGreaterThan("21.42.000")
     is_21_43_or_greater = isEqualsOrGreaterThan("21.43.000")
+    is_21_46_or_greater = isEqualsOrGreaterThan("21.46.000")
 }

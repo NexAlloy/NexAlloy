@@ -28,6 +28,7 @@ import io.github.nexalloy.new
 import io.github.nexalloy.patch
 import io.github.nexalloy.scopedHook
 import java.lang.ref.WeakReference
+import java.lang.reflect.Field
 import java.lang.reflect.Method
 
 private val onCreateHooks = mutableListOf<(VideoInformation.PlaybackController) -> Unit>()
@@ -135,7 +136,7 @@ class PlaybackSpeedMenu(
     }
 }
 
-private lateinit var qualityFormatIds: java.lang.reflect.Field
+private lateinit var qualityFormatIds: Field
 
 internal class VideoQualityProxy(val quality: Any) : VideoInformation.VideoQualityInterface {
     private val qualityNameField = quality.javaClass.findFirstFieldByExactType(String::class.java)

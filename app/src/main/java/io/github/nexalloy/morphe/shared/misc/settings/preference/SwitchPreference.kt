@@ -7,6 +7,7 @@ import android.preference.Preference
 import android.preference.PreferenceManager
 import android.preference.SwitchPreference
 import android.util.AttributeSet
+import app.morphe.extension.shared.settings.preference.BooleanSettingPreference
 import io.github.nexalloy.new
 
 @Suppress("MemberVisibilityCanBePrivate")
@@ -14,7 +15,7 @@ class SwitchPreference(
     key: String? = null,
     titleKey: String = "${key}_title",
     summary: Boolean = false,
-    tag: Class<out Preference> = SwitchPreference::class.java,
+    tag: Class<out Preference> = BooleanSettingPreference::class.java,
     icon: String? = null,
     iconBold: String? = null,
     layout: String? = null,

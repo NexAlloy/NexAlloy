@@ -6,6 +6,7 @@ import io.github.nexalloy.morphe.Opcode
 import io.github.nexalloy.morphe.fieldAccess
 import io.github.nexalloy.morphe.findMethodDirect
 import io.github.nexalloy.morphe.string
+import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.result.FieldData
 
 /**
@@ -40,7 +41,7 @@ internal object PlaybackParametersToStringFingerprint : Fingerprint(
 )
 
 /** The enum fields are obfuscated, but its initializer keeps the constant names as strings. */
-context(bridge: org.luckypray.dexkit.DexKitBridge)
+context(bridge: DexKitBridge)
 internal fun seekSourceUnknownField(seekSourceEnumType: String): FieldData = Fingerprint(
     definingClass = seekSourceEnumType,
     name = "<clinit>",

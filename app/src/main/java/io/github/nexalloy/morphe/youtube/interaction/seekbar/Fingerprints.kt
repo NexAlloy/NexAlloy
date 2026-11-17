@@ -496,3 +496,42 @@ val bigBoardVisibilityMethod = findMethodDirect {
                 it.returnType!!.descriptor == "V"
     }.distinct().single()
 }
+
+internal object TimeBarCompleteHiddenScrubFingerprint : Fingerprint(
+    classFingerprint = TapToSeekFingerprint,
+    name = "onTouchEvent",
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "Z",
+    parameters = listOf("Landroid/view/MotionEvent;"),
+    filters = listOf(
+        methodCall(
+            opcode = Opcode.INVOKE_VIRTUAL,
+            parameters = listOf(),
+            returnType = "Z"
+        ),
+        opcode(Opcode.MOVE_RESULT, location = MatchAfterImmediately()),
+        opcode(Opcode.IF_EQZ, location = MatchAfterImmediately()),
+        methodCall(
+            opcode = Opcode.INVOKE_VIRTUAL,
+            parameters = listOf(),
+            returnType = "V",
+            location = MatchAfterImmediately()
+        ),
+        methodCall(
+            opcode = Opcode.INVOKE_VIRTUAL,
+            parameters = listOf(),
+            returnType = "Z",
+            location = MatchAfterImmediately()
+        ),
+        opcode(Opcode.MOVE_RESULT, location = MatchAfterImmediately()),
+        opcode(Opcode.IF_EQZ, location = MatchAfterImmediately()),
+        opcode(Opcode.INT_TO_FLOAT, location = MatchAfterImmediately())
+    )
+)
+
+val timeBarIsScrubbingMethod = findMethodDirect {
+    TimeBarCompleteHiddenScrubFingerprint.instructionMatches[0].instruction.methodRef!!
+}
+val timeBarCompleteScrubMethod = findMethodDirect {
+    TimeBarCompleteHiddenScrubFingerprint.instructionMatches[3].instruction.methodRef!!
+}

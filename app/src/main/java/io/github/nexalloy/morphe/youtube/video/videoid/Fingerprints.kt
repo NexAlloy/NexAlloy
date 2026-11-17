@@ -11,6 +11,7 @@ import io.github.nexalloy.morphe.findMethodDirect
 import io.github.nexalloy.morphe.findMethodListDirect
 import io.github.nexalloy.morphe.methodCall
 import io.github.nexalloy.morphe.opcode
+import java.lang.reflect.Modifier
 import org.luckypray.dexkit.DexKitBridge
 
 val videoIdFingerprint = findMethodDirect {
@@ -61,5 +62,5 @@ val backgroundVideoIdGetterMethods = findMethodListDirect {
         name = getter.name,
         returnType = "Ljava/lang/String;",
         parameters = emptyList()
-    ).matchAll().map { it.method }.filterNot { java.lang.reflect.Modifier.isAbstract(it.modifiers) }
+    ).matchAll().map { it.method }.filterNot { Modifier.isAbstract(it.modifiers) }
 }

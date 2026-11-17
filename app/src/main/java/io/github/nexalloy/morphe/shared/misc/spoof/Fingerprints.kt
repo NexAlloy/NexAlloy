@@ -3,6 +3,7 @@ package io.github.nexalloy.morphe.shared.misc.spoof
 import io.github.nexalloy.morphe.AccessFlags
 import io.github.nexalloy.morphe.Fingerprint
 import io.github.nexalloy.morphe.InstructionLocation.MatchAfterImmediately
+import io.github.nexalloy.morphe.InstructionLocation.MatchAfterWithin
 import io.github.nexalloy.morphe.Opcode
 import io.github.nexalloy.morphe.fieldAccess
 import io.github.nexalloy.morphe.findMethodDirect
@@ -168,4 +169,21 @@ val cronetDataSpecField = findFieldDirect {
     CronetDataSourceReadFingerprint().declaredClass!!.fields.single {
         it.type.descriptor == dataSpecType
     }
+}
+
+val priorityTaskProceedMethod = findMethodDirect {
+    Fingerprint(
+        returnType = "V", parameters = listOf("I"),
+        filters = listOf(methodCall(reference = PriorityTooLowExceptionFingerprint()))
+    )()
+}
+val priorityDataSourceOpenMethod = findMethodDirect {
+    Fingerprint(
+        returnType = "J", parameters = listOf("L"),
+        filters = listOf(
+            methodCall(reference = priorityTaskProceedMethod()),
+            methodCall(opcode = Opcode.INVOKE_INTERFACE, returnType = "J",
+                location = MatchAfterWithin(3))
+        )
+    )()
 }

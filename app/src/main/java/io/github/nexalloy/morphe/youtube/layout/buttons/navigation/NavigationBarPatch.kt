@@ -128,6 +128,7 @@ val NavigationBar = patch(
 //            key = "morphe_navigation_bar_glass_opacity",
 //            tag = SeekBarPreference::class.java
 //        ),
+//        SwitchPreference("morphe_navigation_bar_glass_round", summary = true),
 //        NonInteractivePreference(
 //            key = "morphe_navigation_bar_glass_height",
 //            titleKey = "morphe_navigation_bar_glass_size_title",

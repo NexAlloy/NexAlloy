@@ -4,6 +4,11 @@ import io.github.nexalloy.SkipTest
 import io.github.nexalloy.morphe.AccessFlags
 import io.github.nexalloy.morphe.Fingerprint
 import io.github.nexalloy.morphe.Opcode
+import io.github.nexalloy.morphe.InstructionLocation.MatchAfterWithin
+import io.github.nexalloy.morphe.InstructionLocation.MatchAfterImmediately
+import io.github.nexalloy.morphe.findClassDirect
+import io.github.nexalloy.morphe.resourceLiteral
+import io.github.nexalloy.morphe.ResourceType
 import io.github.nexalloy.morphe.StrictQuery
 import io.github.nexalloy.morphe.anyInstruction
 import io.github.nexalloy.morphe.checkCast
@@ -153,15 +158,14 @@ internal val offlineUpsellCommandField = findFieldDirect {
 }
 
 internal val playerResponseModelFromBytesMethod = findMethodDirect {
-    playerResponseModelFromBytesFingerprint(OfflinePlayerResponseFingerprint().returnType!!.descriptor)
-        .match().method
+    playerResponseModelFromBytesFingerprint(OfflinePlayerResponseFingerprint().returnType!!.descriptor)()
 }
 
 internal val playerResponseGetterMethod = findMethodDirect {
     val factory = playerResponseModelFromBytesMethod()
     val responseType = playerResponseModelFromBytesFingerprint(factory.returnType!!.descriptor)
         .instructionMatches.last().instruction.classRef!!.descriptor
-    playerResponseGetterFingerprint(factory.declaredClass!!.descriptor, responseType).match().method
+    playerResponseGetterFingerprint(factory.declaredClass!!.descriptor, responseType)()
 }
 
 internal val offlinePlayerResponseFactoryMethod = findMethodDirect {
@@ -280,7 +284,7 @@ internal val offlineStateDefaultInstance = findFieldDirect {
 }
 
 /** Reads the interaction logger interface from the context of commands. */
-internal val interactionLoggerClass = io.github.nexalloy.morphe.findClassDirect {
+internal val interactionLoggerClass = findClassDirect {
     findMethod {
         matcher { usingStrings("com.google.android.libraries.youtube.logging.interaction_logger") }
     }.flatMap { method ->
@@ -294,4 +298,100 @@ internal val interactionLoggerClass = io.github.nexalloy.morphe.findClassDirect 
 internal val noOpInteractionLogger = findFieldDirect {
     val type = interactionLoggerClass()
     type.fields.single { Modifier.isStatic(it.modifiers) && it.type == type }
+}
+
+internal object OfflineSettingCategoryToStringFingerprint : Fingerprint(
+    name = "toString",
+    returnType = "Ljava/lang/String;",
+    parameters = listOf(),
+    filters = listOf(
+        string("OfflineSettingCategory{isFullHdFormatOptionAvailable=")
+    )
+)
+
+internal object OfflineSettingCategoryConstructorFingerprint : Fingerprint(
+    classFingerprint = OfflineSettingCategoryToStringFingerprint,
+    name = "<init>",
+    parameters = listOf(
+        "Z", // Full HD format option is available.
+        "Z", // Recommendations are enabled.
+        "Z", // Download quality is enabled.
+        "Z", // Smart downloads are displayed.
+        "L",
+        "L",
+        "L"
+    )
+)
+
+internal object OfflineSettingsFingerprint : Fingerprint(
+    filters = listOf(
+        string("[Offline] Failed to set hasTransfersForOffline.")
+    )
+)
+
+internal object OfflineSettingsConstructorFingerprint : Fingerprint(
+    classFingerprint = OfflineSettingsFingerprint,
+    name = "<init>",
+    parameters = listOf(
+        "Landroid/content/SharedPreferences;",
+        "L",
+        "I", // Height of the highest download quality.
+        "L",
+        "L"
+    ),
+    filters = listOf(
+        // Copies the format types into an immutable list.
+        methodCall(
+            opcode = Opcode.INVOKE_STATIC,
+            parameters = listOf("Ljava/util/Collection;")
+        )
+    )
+)
+
+internal object FormatTypeMapsFingerprint : Fingerprint(
+    name = "<clinit>",
+    filters = listOf(
+        resourceLiteral(ResourceType.STRING, "offline_video_quality_1080p")
+    )
+)
+
+internal object FormatTypeLabelFingerprint : Fingerprint(
+    classFingerprint = FormatTypeMapsFingerprint,
+    returnType = "I",
+    parameters = listOf("L")
+)
+
+internal object SettingCategoriesFingerprint : Fingerprint(
+    accessFlags = listOf(AccessFlags.PRIVATE, AccessFlags.STATIC, AccessFlags.FINAL),
+    returnType = "Ljava/util/List;",
+    parameters = listOf("[Ljava/lang/Object;", "L"),
+    filters = listOf(
+        opcode(Opcode.ARRAY_LENGTH),
+        // Setting categories of a setting.
+        methodCall(
+            opcode = Opcode.INVOKE_INTERFACE,
+            parameters = listOf("Ljava/lang/Object;"),
+            returnType = "Ljava/lang/Object;"
+        ),
+        checkCast("Ljava/util/Collection;", location = MatchAfterWithin(3)),
+        methodCall(
+            smali = "Ljava/util/List;->addAll(Ljava/util/Collection;)Z",
+            location = MatchAfterImmediately()
+        ),
+        opcode(Opcode.RETURN_OBJECT)
+    )
+)
+
+val offlineSettingCategoryFromProtoMethod = findMethodDirect {
+    Fingerprint(
+        accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
+        returnType = OfflineSettingCategoryToStringFingerprint().declaredClass!!.descriptor,
+        parameters = listOf("L")
+    )()
+}
+val offlineSettingCategoryDefaultInstance = findFieldDirect {
+    defaultInstance(offlineSettingCategoryFromProtoMethod().paramTypes[0])
+}
+val copyOfflineFormatListMethod = findMethodDirect {
+    OfflineSettingsConstructorFingerprint.instructionMatches[0].instruction.methodRef!!
 }

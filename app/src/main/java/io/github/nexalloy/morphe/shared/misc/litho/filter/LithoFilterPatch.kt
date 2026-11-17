@@ -128,6 +128,7 @@ internal fun sharedLithoFilterPatch(
             after { LithoFilterPatch.addObservableList(it.thisObject as List<*>) }
         }
 
+        val gridBytes = ::gridElementBytesField.field
         val itemsField = ::listSectionItemsField.field
         val removeItem = ListSectionRemoveItemFingerprint.method
         val isGrid = ::listSectionIsGridMethod.method
@@ -142,10 +143,18 @@ internal fun sharedLithoFilterPatch(
                         LithoFilterPatch.ListSectionInterface { item ->
                             val section = impl.get() ?: return@ListSectionInterface false
                             val items = itemsField.get(section) as List<*>
-                            val contains = items.contains(item)
+                            val position = items.indexOf(item)
+                            val contains = position >= 0
                             if (contains) {
                                 val wasGrid = isGrid.invoke(section) as Boolean
                                 removeItem.invoke(section, item)
+                                if (wasGrid) {
+                                    (itemsField.get(section) as List<*>).drop(position).forEach { remaining ->
+                                        if (gridBytes.declaringClass.isInstance(remaining)) {
+                                            LithoFilterPatch.moveGridItemBack(gridBytes.get(remaining) as? ByteArray)
+                                        }
+                                    }
+                                }
                                 if (wasGrid && !(isGrid.invoke(section) as Boolean) &&
                                     (itemsField.get(section) as List<*>).isNotEmpty()) {
                                     layOutRows.invoke(section)
@@ -169,6 +178,7 @@ internal fun sharedLithoFilterPatch(
         }
     }
 
+    // TODO: Port list observer removal/reload callbacks and scroll-position remapping.
     // endregion
 
     if (removeFilteredListItems) {

@@ -11,6 +11,7 @@
 package io.github.nexalloy.morphe.shared.layout.theme
 
 import io.github.nexalloy.RequireAppVersion
+import io.github.nexalloy.TargetApp
 import io.github.nexalloy.morphe.AccessFlags
 import io.github.nexalloy.morphe.Fingerprint
 import io.github.nexalloy.morphe.InstructionLocation.MatchAfterImmediately
@@ -21,6 +22,7 @@ import io.github.nexalloy.morphe.fieldAccess
 import io.github.nexalloy.morphe.findFieldDirect
 import io.github.nexalloy.morphe.methodCall
 
+@TargetApp("youtube")
 @RequireAppVersion(minVersion = "21.30.000")
 @StrictQuery
 internal object LithoOnBoundsChangeFingerprint : Fingerprint(
@@ -56,7 +58,8 @@ internal object LithoOnBoundsChangeFingerprint : Fingerprint(
 )
 
 // YT 21.29, Music 9.29 and older.
-@RequireAppVersion(maxVersion = "21.30.000")
+@TargetApp("youtube")
+@RequireAppVersion(maxVersion = "21.29.999")
 @StrictQuery
 internal object LithoOnBoundsChangeLegacyFingerprint : Fingerprint(
     name = "onBoundsChange",
@@ -83,12 +86,14 @@ internal object LithoOnBoundsChangeLegacyFingerprint : Fingerprint(
     )
 )
 
+@get:TargetApp("youtube")
 @get:RequireAppVersion(minVersion = "21.30.000")
 val lithoPaintField = findFieldDirect {
     LithoOnBoundsChangeFingerprint.instructionMatches[0].instruction.fieldRef!!
 }
 
-@get:RequireAppVersion(maxVersion = "21.30.000")
+@get:TargetApp("youtube")
+@get:RequireAppVersion(maxVersion = "21.29.999")
 val lithoPaintLegacyField = findFieldDirect {
     LithoOnBoundsChangeLegacyFingerprint.instructionMatches[1].instruction.fieldRef!!
 }

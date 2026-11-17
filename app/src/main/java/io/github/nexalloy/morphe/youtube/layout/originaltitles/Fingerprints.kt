@@ -17,6 +17,7 @@ import io.github.nexalloy.morphe.methodCall
 import io.github.nexalloy.morphe.opcode
 import io.github.nexalloy.morphe.resourceLiteral
 import io.github.nexalloy.morphe.string
+import java.lang.reflect.Modifier
 
 /**
  * Binds a video of the playlist panel (the queue of a playlist or mix on the watch page).
@@ -180,7 +181,7 @@ internal object SuggestedVideoEndScreenBindFingerprint : Fingerprint(
 
 val compactVideoIdField = findFieldDirect {
     CompactVideoBindFingerprint.instructionMatches.first().instruction.classRef!!.fields.single {
-        it.typeSign == "Ljava/lang/String;" && !java.lang.reflect.Modifier.isStatic(it.accessFlags)
+        it.typeSign == "Ljava/lang/String;" && !Modifier.isStatic(it.accessFlags)
     }
 }
 
@@ -200,7 +201,7 @@ val suggestedVideoRendererGetter = findMethodDirect {
 
 val suggestedVideoIdField = findFieldDirect {
     suggestedVideoRendererGetter().returnType!!.fields.single {
-        it.typeSign == "Ljava/lang/String;" && !java.lang.reflect.Modifier.isStatic(it.accessFlags)
+        it.typeSign == "Ljava/lang/String;" && !Modifier.isStatic(it.accessFlags)
     }
 }
 

@@ -2,6 +2,7 @@ package io.github.nexalloy.morphe.youtube.interaction.seekbar
 
 import android.graphics.Point
 import android.view.MotionEvent
+import android.view.View
 import app.morphe.extension.youtube.patches.TapToSeekPatch
 import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
 import io.github.nexalloy.morphe.youtube.misc.settings.PreferenceScreen
@@ -14,6 +15,17 @@ val enableTapToSeekPatch = patch(
     PreferenceScreen.SEEKBAR.addPreferences(
         SwitchPreference("morphe_tap_to_seek", summary = true),
     )
+
+    val isScrubbing = ::timeBarIsScrubbingMethod.method
+    val completeScrub = ::timeBarCompleteScrubMethod.method
+    TimeBarCompleteHiddenScrubFingerprint.hookMethod {
+        before {
+            if (TapToSeekPatch.shouldCompleteScrub(it.thisObject as View, it.args[0] as MotionEvent)
+                && isScrubbing.invoke(it.thisObject) as Boolean) {
+                completeScrub.invoke(it.thisObject)
+            }
+        }
+    }
 
     // Find the required methods to tap the seekbar.
     val startSeek = ::tapSeekStartMethod.method

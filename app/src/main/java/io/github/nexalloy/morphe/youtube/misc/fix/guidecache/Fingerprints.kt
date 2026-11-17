@@ -13,9 +13,11 @@ import io.github.nexalloy.morphe.Fingerprint
 import io.github.nexalloy.morphe.InstructionLocation.MatchAfterImmediately
 import io.github.nexalloy.morphe.InstructionLocation.MatchAfterWithin
 import io.github.nexalloy.morphe.Opcode
+import io.github.nexalloy.morphe.findMethodListDirect
 import io.github.nexalloy.morphe.literal
 import io.github.nexalloy.morphe.methodCall
 import io.github.nexalloy.morphe.opcode
+import org.luckypray.dexkit.result.ClassData
 
 @RequireAppVersion(minVersion = "21.28.000", maxVersion = "21.31.000")
 internal object GuideResponseAccountFingerprint : Fingerprint(
@@ -35,10 +37,10 @@ internal object GuideResponseAccountFingerprint : Fingerprint(
 )
 
 @get:RequireAppVersion(minVersion = "21.28.000", maxVersion = "21.31.000")
-internal val guideAccountCheckMethods = io.github.nexalloy.morphe.findMethodListDirect {
+internal val guideAccountCheckMethods = findMethodListDirect {
     val called = GuideResponseAccountFingerprint.instructionMatches[1].instruction.methodRef!!
     val owner = called.declaredClass!!.descriptor
-    fun implementsOwner(type: org.luckypray.dexkit.result.ClassData): Boolean =
+    fun implementsOwner(type: ClassData): Boolean =
         type.descriptor == owner || type.interfaces.any(::implementsOwner) ||
             type.superClass?.let(::implementsOwner) == true
     findMethod {

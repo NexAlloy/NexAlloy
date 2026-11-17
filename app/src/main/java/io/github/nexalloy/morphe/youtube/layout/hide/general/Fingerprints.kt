@@ -19,6 +19,8 @@ import io.github.nexalloy.morphe.opcode
 import io.github.nexalloy.morphe.resourceLiteral
 import io.github.nexalloy.morphe.string
 import io.github.nexalloy.morphe.youtube.video.speed.custom.TapAndHoldSpeedFingerprint
+import java.lang.reflect.Modifier
+import org.luckypray.dexkit.result.ClassData
 
 internal object ParseElementFromBufferFingerprint : Fingerprint(
     parameters = listOf("L", "L", "[B", "L", "L"),
@@ -274,7 +276,7 @@ val menuItemsCollectorMethod = findMethodDirect {
 }
 
 val actionBarMenuAddMethods = findMethodListDirect {
-    fun implementsMenu(type: org.luckypray.dexkit.result.ClassData): Boolean =
+    fun implementsMenu(type: ClassData): Boolean =
         type.descriptor == "Landroid/view/Menu;" || type.interfaces.any(::implementsMenu) ||
                 type.superClass?.let(::implementsMenu) == true
     Fingerprint(
@@ -282,6 +284,6 @@ val actionBarMenuAddMethods = findMethodListDirect {
         parameters = listOf("I", "I", "I", "Ljava/lang/CharSequence;"),
         returnType = "Landroid/view/MenuItem;"
     ).matchAll().map { it.method }.filter {
-        !java.lang.reflect.Modifier.isAbstract(it.modifiers) && implementsMenu(it.declaredClass!!)
+        !Modifier.isAbstract(it.modifiers) && implementsMenu(it.declaredClass!!)
     }.also { check(it.isNotEmpty()) }
 }

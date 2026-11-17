@@ -10,7 +10,10 @@ package io.github.nexalloy.morphe.youtube.misc.commandrouter
 import io.github.nexalloy.morphe.AccessFlags
 import io.github.nexalloy.morphe.Fingerprint
 import io.github.nexalloy.morphe.Opcode
+import io.github.nexalloy.morphe.StrictQuery
+import io.github.nexalloy.morphe.findFieldDirect
 import io.github.nexalloy.morphe.methodCall
+import java.lang.reflect.Modifier
 
 /**
  * Looks up the account scoped command router, which only the command router of an activity does.
@@ -35,7 +38,7 @@ internal object CommandRouterConstructorFingerprint : Fingerprint(
 /**
  * Runs one command with its context, by the command router itself if no other router handles the command.
  */
-@io.github.nexalloy.morphe.StrictQuery
+@StrictQuery
 internal object CommandRouterExecuteCommandFingerprint : Fingerprint(
     classFingerprint = CommandRouterFragmentFingerprint,
     returnType = "V",
@@ -50,7 +53,7 @@ internal object CommandRouterExecuteCommandFingerprint : Fingerprint(
     )
 )
 
-internal val commandDefaultInstance = io.github.nexalloy.morphe.findFieldDirect {
+internal val commandDefaultInstance = findFieldDirect {
     val command = CommandRouterExecuteCommandFingerprint().paramTypes.first()
-    command.fields.single { java.lang.reflect.Modifier.isStatic(it.modifiers) && it.type == command }
+    command.fields.single { Modifier.isStatic(it.modifiers) && it.type == command }
 }

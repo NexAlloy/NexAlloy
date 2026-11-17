@@ -20,6 +20,7 @@ import io.github.nexalloy.morphe.opcode
 import io.github.nexalloy.morphe.opcodeEnum
 import io.github.nexalloy.morphe.string
 import io.github.nexalloy.morphe.youtube.layout.hide.shorts.ShortsBottomBarContainerFingerprint
+import io.github.nexalloy.morphe.youtube.misc.toolbar.ToolBarButtonFingerprint
 import java.lang.reflect.Modifier
 
 internal const val PIVOT_BAR_CLASS = "Lcom/google/android/libraries/youtube/rendering/ui/pivotbar/PivotBar;"
@@ -79,7 +80,7 @@ internal val navigationBarRelayoutMethods = findMethodListDirect {
             name = reference.name,
             returnType = "V",
             parameters = emptyList()
-        ).match().method.also { method ->
+        )().also { method ->
             check(method.instructions.any {
                 it.opcode == Opcode.IGET.opCode &&
                         it.fieldRef?.descriptor == paddingField.descriptor
@@ -189,7 +190,7 @@ internal val pivotBarItemRendererClass = findClassDirect {
 }
 
 internal val pivotBarItemDefaultInstance = findFieldDirect {
-    val type = PivotBarRendererFingerprint.match().method.paramTypes.single()
+    val type = PivotBarRendererFingerprint().paramTypes.single()
     type.fields.single {
         Modifier.isStatic(it.modifiers) && Modifier.isFinal(it.modifiers) && it.type.descriptor == type.descriptor
     }
@@ -197,7 +198,7 @@ internal val pivotBarItemDefaultInstance = findFieldDirect {
 
 @get:RequireAppVersion(minVersion = "21.35.000")
 internal val pivotBarItemMessageField = findFieldDirect {
-    PivotBarRendererFingerprint.match().method.declaredClass!!.fields.single {
+    PivotBarRendererFingerprint().declaredClass!!.fields.single {
         it.type!!.descriptor == "Lcom/google/protobuf/MessageLite;"
     }
 }
@@ -230,7 +231,7 @@ internal val pivotBarRendererListBuilderMethod = findMethodDirect {
         accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
         returnType = PivotBarRendererListFingerprint.instructionMatches[2].instruction.fieldRef!!.type!!.descriptor,
         parameters = listOf("Ljava/util/Collection;")
-    ).match().method
+    )()
 }
 
 /**
@@ -273,17 +274,17 @@ internal object PivotBarItemProtoFactoryFingerprint : Fingerprint(
 
 @get:RequireAppVersion(minVersion = "21.35.000")
 internal val pivotBarIconTypeLookupMethod = findMethodDirect {
-    val iconType = PivotBarItemProtoFactoryFingerprint.match().method.paramTypes[2].descriptor
+    val iconType = PivotBarItemProtoFactoryFingerprint().paramTypes[2].descriptor
     Fingerprint(
         definingClass = iconType,
         isStatic = true,
         returnType = iconType,
         parameters = listOf("I")
-    ).match().method
+    )()
 }
 
 internal val toolbarButtonConstructor = findMethodDirect {
-    val toolbar = io.github.nexalloy.morphe.youtube.misc.toolbar.ToolBarButtonFingerprint.match()
+    val toolbar = ToolBarButtonFingerprint.match()
     val instructions = toolbar.method.instructions
     val actionIndex = instructions.indexOfFirst { it.methodRef?.name == "setShowAsAction" }
     val rendererType = instructions.drop(actionIndex).first {

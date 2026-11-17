@@ -1,5 +1,6 @@
 package io.github.nexalloy.morphe.youtube.video.quality
 
+import io.github.nexalloy.AllowAbstract
 import io.github.nexalloy.RequireAppVersion
 import io.github.nexalloy.morphe.AccessFlags
 import io.github.nexalloy.morphe.Fingerprint
@@ -24,7 +25,13 @@ import io.github.nexalloy.morphe.parameters
 import io.github.nexalloy.morphe.resourceLiteral
 import io.github.nexalloy.morphe.resourceMappings
 import io.github.nexalloy.morphe.returns
+import io.github.nexalloy.morphe.shared.FormatStreamModelToStringFingerprint
 import io.github.nexalloy.morphe.string
+import io.github.nexalloy.morphe.youtube.shared.PlaybackStartDescriptorToStringFingerprint
+import io.github.nexalloy.morphe.youtube.shared.VideoQualityClass
+import io.github.nexalloy.morphe.youtube.video.information.VideoQualitySetterFingerprint
+import io.github.nexalloy.morphe.youtube.video.information.setQualityFieldReference
+import org.luckypray.dexkit.DexKitBridge
 
 internal const val CLIENT_ABR_STATE_CLASS =
     "Lcom/google/android/apps/youtube/proto/ClientAbrStateOuterClass\$ClientAbrState;"
@@ -79,7 +86,7 @@ val getVideoQualityConstraintMethod = findMethodDirect {
             methodCall(returnType = LastSelectedVideoQualityConstructorFingerprint().declaredClass!!.descriptor),
             methodCall(reference = getVideoQualitySettingMethod())
         )
-    ).match().method
+    )()
 }
 
 val lastSelectedVideoQualityGetter = findMethodDirect {
@@ -294,13 +301,13 @@ internal object QualityFormatsFeatureFlagFingerprint : Fingerprint(
 @RequireAppVersion("21.17.000")
 @StrictQuery
 internal object PlaybackControllerSetVideoFormatsFingerprint : Fingerprint(
-    definingClass = "Lcom/google/android/libraries/youtube/media/player/exo2/platypus/PlaybackControllerWrapper;",
     accessFlags = listOf(AccessFlags.FINAL),
     returnType = "Z",
     parameters = listOf("Z"),
     filters = listOf(
         fieldAccess(
             opcode = Opcode.IGET_OBJECT,
+            definingClass = "this",
             type = "Lcom/google/android/libraries/youtube/media/interfaces/PlaybackController;"
         ),
         opcode(Opcode.IF_NEZ, location = MatchAfterImmediately()),
@@ -318,7 +325,6 @@ internal object PlaybackControllerSetVideoFormatsFingerprint : Fingerprint(
  */
 @RequireAppVersion("21.17.000")
 internal object AsyncMediaFetchControllerSetVideoFormatsFingerprint : Fingerprint(
-    definingClass = "Lcom/google/android/libraries/youtube/media/player/exo2/platypus/AsyncMediaFetchControllerWrapper;",
     returnType = "V",
     parameters = listOf("L", "Z"),
     filters = listOf(
@@ -328,10 +334,10 @@ internal object AsyncMediaFetchControllerSetVideoFormatsFingerprint : Fingerprin
 
 internal val setVideoQualityResolutionMethod = findMethodDirect {
     Fingerprint(
-        definingClass = io.github.nexalloy.morphe.youtube.video.information.setQualityFieldReference().typeSign,
+        definingClass = setQualityFieldReference().typeSign,
         returnType = "V",
         parameters = listOf("I")
-    ).match().method
+    )()
 }
 
 internal val videoQualityItemSetResolutionMethods = findMethodListDirect {
@@ -350,7 +356,7 @@ internal const val BUFFER_MANAGER_CLASS =
  * The method of the player that clears the buffered media of a track, and buffers it again
  * from the time the video started or was last seeked to.
  */
-@RequireAppVersion("21.17.000")
+@RequireAppVersion("21.17.000", "21.46.000")
 internal object PlaybackControllerClearBufferFingerprint : Fingerprint(
     definingClass = "Lcom/google/android/libraries/youtube/media/player/exo2/platypus/PlaybackControllerWrapper;",
     returnType = "V",
@@ -374,7 +380,7 @@ internal const val MEDIA_SEGMENT_HOLDER_CLASS =
  * that contains a time. Before 21.44 it is called from a method of the buffer manager,
  * and 21.44+ inlines that method into the player.
  */
-@RequireAppVersion("21.17.000")
+@RequireAppVersion("21.17.000", "21.46.000")
 internal object MediaSegmentHolderDiscardBufferAfterSegmentFingerprint : Fingerprint(
     filters = listOf(
         string("discardBufferAfterCurrentSegment with disposed BufferManager"),
@@ -386,7 +392,7 @@ internal object MediaSegmentHolderDiscardBufferAfterSegmentFingerprint : Fingerp
     )
 )
 
-@get:RequireAppVersion("21.17.000")
+@get:RequireAppVersion("21.17.000", "21.46.000")
 internal val mediaSegmentHolderDiscardBufferAfterSegmentMethod = findMethodDirect {
     MediaSegmentHolderDiscardBufferAfterSegmentFingerprint.instructionMatches.last().instruction.methodRef!!
 }
@@ -397,7 +403,7 @@ internal const val SAMPLE_HOLDER_CLASS =
 /**
  * The method of the buffer manager that returns the buffered media of a track.
  */
-@RequireAppVersion("21.17.000")
+@RequireAppVersion("21.17.000", "21.46.000")
 internal object BufferManagerGetMediaSegmentHolderFingerprint : Fingerprint(
     definingClass = BUFFER_MANAGER_CLASS,
     accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
@@ -430,8 +436,8 @@ internal object SampleHolderDiscardBufferBeforeSegmentLegacyFingerprint : Finger
  * with the parameters: time, playback time and size of the media kept before the playback time.
  */
 @RequireAppVersion("21.43.000")
+@StrictQuery
 internal object SampleHolderDiscardBufferBeforeSegmentFingerprint : Fingerprint(
-    definingClass = SAMPLE_HOLDER_CLASS,
     returnType = "V",
     parameters = listOf("J", "J", "J"),
     filters = listOf(
@@ -444,7 +450,7 @@ internal object SampleHolderDiscardBufferBeforeSegmentFingerprint : Fingerprint(
  * The method of the buffered media of a track that saves the end time of its first segment.
  * The media before a time is cleared only if the time is after it.
  */
-@RequireAppVersion("21.17.000")
+@RequireAppVersion("21.17.000", "21.46.000")
 internal object MediaSegmentHolderSetFirstSegmentEndTimeFingerprint : Fingerprint(
     definingClass = MEDIA_SEGMENT_HOLDER_CLASS,
     returnType = "V",
@@ -464,7 +470,7 @@ internal object MediaSegmentHolderSetFirstSegmentEndTimeFingerprint : Fingerprin
  * The method of the media source that clears the media buffered before the playback time,
  * called by the player while the video is loaded.
  */
-@RequireAppVersion("21.17.000")
+@RequireAppVersion("21.17.000", "21.46.000")
 internal object MediaPushMediaSourceDiscardBufferFingerprint : Fingerprint(
     definingClass = "Lcom/google/android/libraries/youtube/media/player/exo2/platypus/mediapush/MediaPushMediaSource;",
     returnType = "V",
@@ -489,16 +495,16 @@ internal val playbackStartInitialResolutionMethod = findMethodDirect {
             methodCall(smali = "Lj$/util/Optional;->orElse(Ljava/lang/Object;)Ljava/lang/Object;"),
             checkCast("Ljava/lang/Integer;")
         )
-    ).match().method
+    )()
 }
 
-context(dexkit: org.luckypray.dexkit.DexKitBridge)
+context(dexkit: DexKitBridge)
 private fun playerPlaybackStartDescriptorFingerprint() = Fingerprint(
     definingClass = playbackStartInitialResolutionMethod(dexkit).declaredClass!!.descriptor,
     filters = listOf(
         fieldAccess(opcode = Opcode.IGET_OBJECT, definingClass = "this"),
         methodCall(
-            returnType = io.github.nexalloy.morphe.youtube.shared.PlaybackStartDescriptorToStringFingerprint().declaredClass!!.descriptor,
+            returnType = PlaybackStartDescriptorToStringFingerprint().declaredClass!!.descriptor,
             parameters = listOf(),
             location = MatchAfterImmediately()
         )
@@ -509,21 +515,21 @@ internal val playbackStartPlayerField = findFieldDirect {
     playerPlaybackStartDescriptorFingerprint().instructionMatches[0].instruction.fieldRef!!
 }
 
-@get:io.github.nexalloy.AllowAbstract
+@get:AllowAbstract
 internal val playerPlaybackStartDescriptorMethod = findMethodDirect {
     playerPlaybackStartDescriptorFingerprint().instructionMatches[1].instruction.methodRef!!
 }
 
 internal val videoQualityMenuQualitiesField = findFieldDirect {
     Fingerprint(
-        classFingerprint = io.github.nexalloy.morphe.youtube.video.information.VideoQualitySetterFingerprint,
+        classFingerprint = VideoQualitySetterFingerprint,
         returnType = "V",
         parameters = listOf("[L", "I", "Z"),
         strings = listOf("menu_item_video_quality"),
         filters = listOf(fieldAccess(
             opcode = Opcode.IPUT_OBJECT,
             definingClass = VideoQualityItemOnClickFingerprint().declaredClass!!.descriptor,
-            type = "[" + io.github.nexalloy.morphe.youtube.shared.VideoQualityClass().descriptor
+            type = "[" + VideoQualityClass().descriptor
         ))
     ).instructionMatches.first().instruction.fieldRef!!
 }
@@ -544,13 +550,13 @@ internal val currentVideoFormatConstructor = findMethodDirect {
         filters = listOf(fieldAccess(
             opcode = Opcode.IPUT_OBJECT,
             definingClass = "this",
-            type = "[" + io.github.nexalloy.morphe.youtube.shared.VideoQualityClass().descriptor
+            type = "[" + VideoQualityClass().descriptor
         ))
-    ).match().method
+    )()
 }
 
 internal val currentVideoFormatField = findFieldDirect {
-    val type = io.github.nexalloy.morphe.shared.FormatStreamModelToStringFingerprint().declaredClass!!.descriptor
+    val type = FormatStreamModelToStringFingerprint().declaredClass!!.descriptor
     Fingerprint(
         definingClass = currentVideoFormatConstructor().declaredClass!!.descriptor,
         name = "<init>",
@@ -563,27 +569,27 @@ internal val videoTrackTypeField = findFieldDirect {
     PlaybackControllerSetVideoFormatsFingerprint.instructionMatches.last().instruction.fieldRef!!
 }
 
-@get:RequireAppVersion("21.17.000")
+@get:RequireAppVersion("21.17.000", "21.46.000")
 internal val stopMediaRequestsMethod = findMethodDirect {
     PlaybackControllerClearBufferFingerprint.instructionMatches[0].instruction.methodRef!!
 }
 
-@get:RequireAppVersion("21.17.000")
+@get:RequireAppVersion("21.17.000", "21.46.000")
 internal val playbackBufferManagerField = findFieldDirect {
     PlaybackControllerClearBufferFingerprint.instructionMatches[1].instruction.fieldRef!!
 }
 
-@get:RequireAppVersion("21.17.000")
+@get:RequireAppVersion("21.17.000", "21.46.000")
 internal val firstSegmentEndTimeField = findFieldDirect {
     MediaSegmentHolderSetFirstSegmentEndTimeFingerprint.instructionMatches.last().instruction.fieldRef!!
 }
 
-@get:RequireAppVersion("21.17.000")
+@get:RequireAppVersion("21.17.000", "21.46.000")
 internal val mediaSourceBufferManagerField = findFieldDirect {
     MediaPushMediaSourceDiscardBufferFingerprint.instructionMatches[1].instruction.fieldRef!!
 }
 
-@get:RequireAppVersion("21.17.000")
+@get:RequireAppVersion("21.17.000", "21.46.000")
 internal val mediaSourcePrepareDiscardMethod = findMethodDirect {
     val match = MediaPushMediaSourceDiscardBufferFingerprint.match()
     match.method.instructions.take(match.instructionMatches[1].index).last {

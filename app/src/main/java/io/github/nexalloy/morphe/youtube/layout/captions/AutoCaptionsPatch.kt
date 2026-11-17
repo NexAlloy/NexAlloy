@@ -26,6 +26,30 @@ val AutoCaptions = patch(
         ListPreference("morphe_auto_captions_style")
     )
 
+    val reason = ::captionSelectionReasonField.field
+    val forced = ::forcedCaptionTrackField.field
+    val owners = ::forcedCaptionOwnerFields.fieldList
+    SubtitleManagerFingerprint.hookMethod {
+        before {
+            AutoCaptionsPatch.setCaptionSelectionReason(reason.getInt(it.args[0]))
+            val owner = owners.fold(it.thisObject as Any?) { value, field -> value?.let(field::get) }
+            if (owner != null) {
+                val original = forced.getBoolean(owner)
+                val shown = AutoCaptionsPatch.showForcedCaptions(original)
+                if (shown != original) {
+                    it.setObjectExtra("forcedCaptionOwner", owner)
+                    it.setObjectExtra("forcedCaptionValue", original)
+                    forced.setBoolean(owner, shown)
+                }
+            }
+        }
+        after {
+            it.getObjectExtra("forcedCaptionOwner")?.let { owner ->
+                forced.setBoolean(owner, it.getObjectExtra("forcedCaptionValue") as Boolean)
+            }
+        }
+    }
+
     SubtitleManagerFingerprint.hookMethod(scopedHook(::subtitleTrackIsDisableOptionMethod.method) {
         after {
             if (outerParam.getObjectExtra("autoCaptionsHandled") == true) return@after

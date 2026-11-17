@@ -8,6 +8,7 @@ val SanitizeSharingLinks = patch(
     name = "Sanitize sharing links",
     description = "Removes the tracking query parameters from shared links."
 ) {
+    // NexAlloy: the shared Intent.putExtra hook already sanitizes the system share-sheet link.
     SanitizeSharingLinks(
         preferenceScreen = PreferenceScreen.MISC,
         replaceMusicLinksWithYouTube = true

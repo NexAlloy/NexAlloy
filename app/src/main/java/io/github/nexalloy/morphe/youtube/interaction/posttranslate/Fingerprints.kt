@@ -12,6 +12,8 @@ import io.github.nexalloy.morphe.InstructionLocation.MatchAfterImmediately
 import io.github.nexalloy.morphe.InstructionLocation.MatchAfterWithin
 import io.github.nexalloy.morphe.Opcode
 import io.github.nexalloy.morphe.fieldAccess
+import io.github.nexalloy.morphe.findFieldDirect
+import io.github.nexalloy.morphe.findMethodDirect
 import io.github.nexalloy.morphe.methodCall
 import io.github.nexalloy.morphe.shared.misc.litho.relayout.COMPONENT_HOST_CLASS
 import io.github.nexalloy.morphe.shared.misc.litho.relayout.COMPONENT_TEXT_CONTENT
@@ -109,24 +111,24 @@ internal object LithoTextDrawableDrawFingerprint : Fingerprint(
     )
 )
 
-internal val postEnsureMountItems = io.github.nexalloy.morphe.findMethodDirect {
+internal val postEnsureMountItems = findMethodDirect {
     ComponentHostGetTextContentFingerprint.instructionMatches[0].instruction.methodRef!!
 }
-internal val postMountItemsField = io.github.nexalloy.morphe.findFieldDirect {
+internal val postMountItemsField = findFieldDirect {
     ComponentHostGetTextContentFingerprint.instructionMatches[1].instruction.fieldRef!!
 }
-internal val postMountItemsSize = io.github.nexalloy.morphe.findMethodDirect {
+internal val postMountItemsSize = findMethodDirect {
     ComponentHostGetTextContentFingerprint.instructionMatches[2].instruction.methodRef!!
 }
-internal val postMountItemAt = io.github.nexalloy.morphe.findMethodDirect {
+internal val postMountItemAt = findMethodDirect {
     ComponentHostGetTextContentFingerprint.instructionMatches[3].instruction.methodRef!!
 }
-internal val postMountedContentField = io.github.nexalloy.morphe.findFieldDirect {
+internal val postMountedContentField = findFieldDirect {
     ComponentHostGetTextContentFingerprint.instructionMatches[4].instruction.fieldRef!!
 }
-internal val postDrawableTextField = io.github.nexalloy.morphe.findFieldDirect {
+internal val postDrawableTextField = findFieldDirect {
     LithoTextDrawableGetTextItemsFingerprint.instructionMatches.first().instruction.fieldRef!!
 }
-internal val postDrawableLayoutField = io.github.nexalloy.morphe.findFieldDirect {
+internal val postDrawableLayoutField = findFieldDirect {
     LithoTextDrawableDrawFingerprint.instructionMatches.first().instruction.fieldRef!!
 }

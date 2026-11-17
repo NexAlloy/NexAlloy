@@ -1,6 +1,7 @@
 package io.github.nexalloy.morphe.youtube.misc.backgroundplayback
 
 import io.github.nexalloy.RequireAppVersion
+import io.github.nexalloy.SkipTest
 import io.github.nexalloy.morphe.AccessFlags
 import io.github.nexalloy.morphe.Fingerprint
 import io.github.nexalloy.morphe.InstructionLocation.MatchAfterWithin
@@ -9,6 +10,9 @@ import io.github.nexalloy.morphe.OpcodesFilter
 import io.github.nexalloy.morphe.ResourceType
 import io.github.nexalloy.morphe.accessFlags
 import io.github.nexalloy.morphe.findMethodDirect
+import io.github.nexalloy.morphe.opcode
+import io.github.nexalloy.morphe.fieldAccess
+import io.github.nexalloy.morphe.InstructionLocation.MatchAfterImmediately
 import io.github.nexalloy.morphe.findMethodListDirect
 import io.github.nexalloy.morphe.literal
 import io.github.nexalloy.morphe.methodCall
@@ -102,7 +106,8 @@ val backgroundPlaybackSettingsLegacySubFingerprint = findMethodDirect {
     BackgroundPlaybackSettingsLegacyFingerprint.instructionMatches[1].instruction.methodRef!!
 }
 
-object KidsBackgroundPlaybackPolicyControllerFingerprint : Fingerprint(
+@RequireAppVersion(maxVersion = "21.46.000")
+object KidsBackgroundPlaybackPolicyControllerLegacyFingerprint : Fingerprint(
     accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
     returnType = "V",
     parameters = listOf("I", "L", "L"),
@@ -139,4 +144,74 @@ val playingWhenBackgroundedMethods = findMethodListDirect {
     findMethod { matcher { addEqString("was_playing_when_backgrounded") } }
         .map { it.declaredClass!! }.distinctBy { it.descriptor }
         .flatMap { it.methods }
+}
+
+@RequireAppVersion(minVersion = "21.46.000")
+internal object KidsBackgroundPlaybackPolicyControllerFingerprint : Fingerprint(
+    returnType = "V",
+    parameters = listOf("I", "Z", "Z", "Z", "L"),
+    filters = listOf(
+        opcode(Opcode.IGET),
+        literal(5, location = MatchAfterWithin(8)),
+        literal(2, location = MatchAfterWithin(5)),
+        literal(3, location = MatchAfterWithin(8)),
+        literal(0x13, location = MatchAfterWithin(12)),
+    )
+)
+internal object BackgroundPlaybackSettingAllowedFingerprint : Fingerprint(
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
+    returnType = "Z",
+    parameters = listOf("L", "L", "L"),
+    filters = listOf(
+        methodCall(definingClass = "Landroid/media/AudioManager;", name = "isWiredHeadsetOn"),
+        methodCall(definingClass = "Landroid/media/AudioManager;", name = "isBluetoothA2dpOn"),
+        methodCall(definingClass = "Landroid/media/AudioManager;", name = "isBluetoothScoOn")
+    )
+)
+@RequireAppVersion(minVersion = "21.15.000")
+internal object BackgroundPlaybackSettingFingerprint : Fingerprint(
+    classFingerprint = BackgroundPlaybackSettingAllowedFingerprint,
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "Z",
+    parameters = listOf(),
+    filters = listOf(
+        methodCall(opcode = Opcode.INVOKE_INTERFACE, returnType = "Lcom/google/protobuf/MessageLite;", parameters = listOf()),
+        methodCall(opcode = Opcode.INVOKE_STATIC, parameters = listOf("L", "L", "L"), returnType = "Z")
+    )
+)
+@get:RequireAppVersion(minVersion = "21.15.000")
+val backgroundPlaybackSettingConstructor = findMethodDirect {
+    val setting = BackgroundPlaybackSettingFingerprint.match()
+    val store = setting.instructionMatches[0].instruction.methodRef!!.declaredClass!!
+    val audio = BackgroundPlaybackSettingAllowedFingerprint().paramTypes[1]
+    setting.method.declaredClass!!.methods.single {
+        it.name == "<init>" && it.paramTypes.size >= 2 && it.paramTypes[0] == store && it.paramTypes[1] == audio
+    }
+}
+
+@SkipTest
+internal object MediaSessionArtworkStateFingerprint : Fingerprint(
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "I",
+    parameters = listOf("Landroid/graphics/Bitmap;", "Landroid/graphics/Bitmap;"),
+    filters = listOf(
+        opcode(Opcode.IF_NEZ),
+        opcode(Opcode.IF_NEZ, location = MatchAfterImmediately()),
+        fieldAccess(opcode = Opcode.IGET_OBJECT, type = "Landroid/graphics/Bitmap;", location = MatchAfterImmediately()),
+        opcode(Opcode.IF_NEZ, location = MatchAfterImmediately()),
+        fieldAccess(opcode = Opcode.IGET_OBJECT, type = "Landroid/graphics/Bitmap;", location = MatchAfterImmediately()),
+        opcode(Opcode.IF_NEZ, location = MatchAfterImmediately()),
+        // No change.
+        opcode(Opcode.CONST_4, location = MatchAfterImmediately()),
+        fieldAccess(opcode = Opcode.IPUT_OBJECT, type = "Landroid/graphics/Bitmap;"),
+        fieldAccess(opcode = Opcode.IPUT_OBJECT, type = "Landroid/graphics/Bitmap;", location = MatchAfterImmediately()),
+        // Change of the artwork.
+        opcode(Opcode.CONST_16, location = MatchAfterImmediately())
+    )
+)
+@get:RequireAppVersion(minVersion = "20.51.000")
+val mediaSessionArtworkStateMethod = findMethodDirect {
+    MediaSessionArtworkStateFingerprint.matchAll().single {
+        it.method.declaredClass!!.interfaces.isNotEmpty()
+    }.also { check(it.instructionMatches.last().instruction.literal == 0x100L) }.method
 }

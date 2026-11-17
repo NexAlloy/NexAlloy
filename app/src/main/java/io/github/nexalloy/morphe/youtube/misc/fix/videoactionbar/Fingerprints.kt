@@ -2,6 +2,7 @@ package io.github.nexalloy.morphe.youtube.misc.fix.videoactionbar
 
 import io.github.nexalloy.AllowAbstract
 import io.github.nexalloy.RequireAppVersion
+import io.github.nexalloy.SkipTest
 import io.github.nexalloy.morphe.AccessFlags
 import io.github.nexalloy.morphe.Fingerprint
 import io.github.nexalloy.morphe.InstructionLocation.MatchAfterImmediately
@@ -115,7 +116,7 @@ val configInfoBuildMethod = findMethodDirect {
     method.instructions.take(assignment).last { it.methodRef?.name == "build" }.methodRef!!
 }
 
-@io.github.nexalloy.SkipTest
+@SkipTest
 internal object StreamingDataOuterClassFingerprint : Fingerprint(
     definingClass = $$"Lcom/google/protos/youtube/api/innertube/StreamingDataOuterClass$StreamingData;",
     accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),

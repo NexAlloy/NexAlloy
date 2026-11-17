@@ -137,5 +137,5 @@ internal object AppWatchDescriptorToStringFingerprint : Fingerprint(
 val backButtonFinishActivityOnNewVideoIntentMethod = findMethodDirect {
     BackButtonFinishActivityOnNewVideoIntentFingerprint(
         AppWatchDescriptorToStringFingerprint().declaredClass!!.descriptor
-    ).match().method
+    )()
 }

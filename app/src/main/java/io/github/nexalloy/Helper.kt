@@ -12,6 +12,7 @@ import de.robv.android.xposed.XposedBridge
 import de.robv.android.xposed.XposedHelpers
 import io.github.libxposed.api.XposedInterface.PRIORITY_DEFAULT
 import java.io.File
+import java.lang.Enum.valueOf as javaEnumValueOf
 import java.lang.ref.WeakReference
 import java.lang.reflect.InvocationTargetException
 import java.lang.reflect.Member
@@ -228,7 +229,7 @@ fun injectHostClassLoaderToSelf(self: ClassLoader, host: ClassLoader) {
 @Suppress("UNCHECKED_CAST")
 fun Class<*>.enumValueOf(name: String): Enum<*>? {
     return try {
-        java.lang.Enum.valueOf(this as Class<out Enum<*>>, name)
+        javaEnumValueOf(this as Class<out Enum<*>>, name)
     } catch (_: IllegalArgumentException) {
         null
     }

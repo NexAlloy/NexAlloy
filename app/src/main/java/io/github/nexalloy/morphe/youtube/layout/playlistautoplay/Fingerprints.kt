@@ -68,5 +68,5 @@ val navigationPlayerButtonsMethod = findMethodDirect {
             methodCall(smali = "Ljava/lang/Runnable;->run()V", location = MatchAfterWithin(3)),
             methodCall(parameters = listOf(wrapperType), returnType = "V", location = MatchAfterWithin(3))
         )
-    ).match().method
+    )()
 }

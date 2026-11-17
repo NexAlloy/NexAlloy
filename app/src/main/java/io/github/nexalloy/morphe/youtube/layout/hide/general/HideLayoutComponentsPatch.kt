@@ -9,6 +9,7 @@ import android.widget.TextView
 import app.morphe.extension.shared.ResourceUtils.getDimenIdentifier
 import app.morphe.extension.shared.ResourceUtils.getIdIdentifier
 import app.morphe.extension.shared.ResourceUtils.getLayoutIdentifier
+import app.morphe.extension.shared.patches.components.LithoFilterPatch
 import app.morphe.extension.shared.settings.preference.BulletPointPreference
 import app.morphe.extension.youtube.patches.components.CommentsFilter
 import app.morphe.extension.youtube.patches.components.CustomFilter
@@ -22,6 +23,7 @@ import app.morphe.extension.youtube.settings.preference.HTMLPreference
 import app.morphe.extension.youtube.settings.preference.KeywordContentStatsPreferenceCategory
 import com.google.protobuf.CodedInputStream
 import io.github.nexalloy.hookMethod
+import io.github.nexalloy.morphe.shared.misc.litho.context.ConversionContext
 import io.github.nexalloy.morphe.shared.misc.litho.filter.addLithoFilter
 import io.github.nexalloy.morphe.shared.misc.litho.filter.emptyComponentClass
 import io.github.nexalloy.morphe.shared.misc.litho.node.hookTreeNodeResult
@@ -59,6 +61,7 @@ import io.github.nexalloy.morphe.youtube.video.speed.custom.TapAndHoldSpeedFinge
 import io.github.nexalloy.new
 import io.github.nexalloy.patch
 import io.github.nexalloy.scopedHook
+import java.util.function.Function
 import org.luckypray.dexkit.wrap.DexMethod
 
 val HideLayoutComponents = patch(
@@ -399,8 +402,8 @@ val HideLayoutComponents = patch(
         after {
             val bytes = it.args[2] as ByteArray
             if (LayoutComponentsFilter.filterMixPlaylists(bytes)) {
-                app.morphe.extension.shared.patches.components.LithoFilterPatch.removeFilteredElementListItem(
-                    io.github.nexalloy.morphe.shared.misc.litho.context.ConversionContext(it.args[1])
+                LithoFilterPatch.removeFilteredElementListItem(
+                    ConversionContext(it.args[1])
                 )
                 it.result = emptyComponent
             }
@@ -561,7 +564,7 @@ val HideLayoutComponents = patch(
     // The list popup menu ignores the zero height of a hidden item and only keeps its text hidden,
     // so the filtered items are left out of the items of the popup menus instead.
     val menuTitle = ::contextualMenuItemTextFingerprint.method
-    LayoutComponentsFilter.flyoutMenuItemAdapter = java.util.function.Function { item ->
+    LayoutComponentsFilter.flyoutMenuItemAdapter = Function { item ->
         if (menuTitle.parameterTypes.single().isInstance(item)) {
             LayoutComponentsFilter.FlyoutMenuItem { menuTitle.invoke(null, item) as? CharSequence }
         } else null

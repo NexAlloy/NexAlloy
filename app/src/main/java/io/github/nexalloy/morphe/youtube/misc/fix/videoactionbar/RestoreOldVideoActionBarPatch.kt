@@ -36,6 +36,7 @@ internal val restoreOldVideoActionBarPatch = patch(
     // The layout of the action bar is a field of its element, so the Classic and Minimal layouts
     // do not depend on the layout that the server sends.
     hookElement(RestoreOldVideoActionBarPatch::setVideoActionBarLayout)
+    hookElement(RestoreOldVideoActionBarPatch::removeSubtitleChannelCommand)
 
     // The two rows of the Classic Two-Rows layout are two elements, and the server sends one.
     val sectionsField = ::watchNextSectionsField.field

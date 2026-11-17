@@ -4,6 +4,7 @@ import android.view.View
 import app.morphe.extension.shared.ResourceUtils.getIdIdentifier
 import app.morphe.extension.youtube.patches.components.ShortsFilter
 import de.robv.android.xposed.XC_MethodReplacement
+import io.github.nexalloy.morphe.resourceMappings
 import io.github.nexalloy.morphe.shared.misc.litho.filter.addLithoFilter
 import io.github.nexalloy.morphe.shared.misc.settings.preference.PreferenceCategory
 import io.github.nexalloy.morphe.shared.misc.settings.preference.PreferenceScreenPreference
@@ -12,7 +13,11 @@ import io.github.nexalloy.morphe.youtube.layout.buttons.navigation.NavigationBar
 import io.github.nexalloy.morphe.youtube.misc.engagement.EngagementPanelHook
 import io.github.nexalloy.morphe.youtube.misc.litho.filter.LithoFilter
 import io.github.nexalloy.morphe.youtube.misc.litho.observer.LayoutReloadObserver
+import io.github.nexalloy.morphe.youtube.misc.playservice.is_20_51_or_greater
 import io.github.nexalloy.morphe.youtube.misc.settings.PreferenceScreen
+import io.github.nexalloy.hookMethod
+import io.github.nexalloy.morphe.youtube.shared.filterPushNotification
+import io.github.nexalloy.morphe.youtube.shared.pushNotificationHookPatch
 import io.github.nexalloy.patch
 import org.luckypray.dexkit.wrap.DexMethod
 
@@ -24,8 +29,21 @@ val HideShortsComponents = patch(
         EngagementPanelHook,
         LayoutReloadObserver,
         LithoFilter,
-        NavigationBar
+        NavigationBar,
+        pushNotificationHookPatch
     )
+
+    PreferenceScreen.SHORTS.addPreferences(SwitchPreference("morphe_hide_shorts_notifications"))
+    filterPushNotification(ShortsFilter::hideShortsNotificationBytes)
+    if (is_20_51_or_greater) {
+        val actionBar = resourceMappings["id", "reel_bottom_action_bar_container"]
+        View::class.java.getDeclaredMethod("findViewById", Int::class.javaPrimitiveType).hookMethod {
+            after {
+                if (it.args[0] == actionBar) ShortsFilter.hideEmptyBottomActionBar(it.result as? View)
+            }
+        }
+    }
+    // TODO: Restore navigation mode at each ReelWatchConfig field read when a channel Short's comment bar is hidden.
 
     PreferenceScreen.addShortsPlayerPreferences(
         // Shorts player components.

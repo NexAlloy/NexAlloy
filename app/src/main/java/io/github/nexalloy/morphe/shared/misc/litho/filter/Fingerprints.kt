@@ -242,7 +242,7 @@ internal val commandEventDataDecoratorsMethod = findMethodDirect {
         returnType = field.typeSign,
         parameters = emptyList(),
         filters = listOf(fieldAccess(opcode = Opcode.IGET_OBJECT, reference = field))
-    ).match().method
+    )()
 }
 
 @get:TargetApp("youtube")
@@ -385,7 +385,7 @@ internal fun stickyHeaderEntryCompareFingerprint(entryType: String) = Fingerprin
 
 @get:TargetApp("youtube")
 val stickyHeaderCreateMethod = findMethodDirect {
-    stickyHeaderCreateFingerprint(StickyHeadersFingerprint().declaredClass!!.descriptor).match().method
+    stickyHeaderCreateFingerprint(StickyHeadersFingerprint().declaredClass!!.descriptor)()
 }
 
 context(_: DexKitBridge)
@@ -441,4 +441,28 @@ val stickyHeaderOwnerField = findFieldDirect {
         }
         instructions[cast - 1].fieldRef!!
     }
+}
+
+@StrictQuery
+internal object ElementItemConstructorFingerprint : Fingerprint(
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.CONSTRUCTOR),
+    returnType = "V",
+    parameters = listOf("L"),
+    filters = listOf(
+        methodCall(
+            opcode = Opcode.INVOKE_STATIC,
+            returnType = "[B"
+        ),
+        fieldAccess(
+            opcode = Opcode.IPUT_OBJECT,
+            type = "[B",
+            location = MatchAfterWithin(1)
+        ),
+        opcode(Opcode.CONST_4, MatchAfterImmediately()),
+        opcode(Opcode.IPUT_OBJECT, MatchAfterImmediately()),
+        opcode(Opcode.RETURN_VOID, MatchAfterImmediately())
+    )
+)
+val gridElementBytesField = findFieldDirect {
+    ElementItemConstructorFingerprint.instructionMatches[1].instruction.fieldRef!!
 }

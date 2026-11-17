@@ -6,7 +6,7 @@ import app.morphe.extension.shared.spoof.SpoofVideoStreamsPatch
 import app.morphe.extension.shared.spoof.requests.StreamingDataRequest
 import app.morphe.extension.youtube.patches.DownloadsPatch
 import app.morphe.extension.youtube.patches.InAppDownloadsPatch
-import app.morphe.extension.youtube.settings.preference.ExportFolderPreference
+import app.morphe.extension.shared.settings.preference.ExportFolderPreference
 import app.morphe.extension.youtube.videoplayer.ExportDownloadButton
 import app.morphe.extension.youtube.videoplayer.ExternalDownloadButton
 import app.morphe.extension.youtube.videoplayer.ShortsDownloadButton
@@ -61,6 +61,8 @@ val Downloads = patch(
             preferences = setOf(
                 ListPreference("morphe_download_mode"),
                 SwitchPreference("morphe_shorts_download_flyout_button", summary = true),
+                SwitchPreference("morphe_feed_download_flyout_button", summary = true),
+                // SwitchPreference("morphe_download_force_4k", summary = true),
                 NonInteractivePreference(
                     "morphe_export_download_folder",
                     summaryKey = null,
@@ -116,6 +118,39 @@ val Downloads = patch(
 
     // Add the Download button to the playlist page headers, which only Premium accounts get.
     hookElement(InAppDownloadsPatch::addPlaylistDownloadButton)
+
+    // Show Background & downloads settings before any video has been saved.
+    val categoryClass = ::offlineSettingCategoryFromProtoMethod.method.returnType
+    val categoryFromProto = ::offlineSettingCategoryFromProtoMethod.method
+    val categoryDefault = ::offlineSettingCategoryDefaultInstance.field.get(null)
+    SettingCategoriesFingerprint.hookMethod {
+        after {
+            val categories = it.result as List<*>
+            if (InAppDownloadsPatch.needsOfflineSettingCategory(categories, categoryClass)) {
+                it.result = categories + categoryFromProto.invoke(null, categoryDefault)
+            }
+        }
+    }
+    OfflineSettingsConstructorFingerprint.hookMethod {
+        before { it.args[2] = InAppDownloadsPatch.getMaxDownloadQualityHeight(it.args[2] as Int) }
+    }
+    val copyFormats = ::copyOfflineFormatListMethod.method
+    OfflineSettingCategoryConstructorFingerprint.hookMethod {
+        before {
+            it.args[0] = InAppDownloadsPatch.isFullHdFormatOptionAvailable(it.args[0] as Boolean)
+            it.args[2] = InAppDownloadsPatch.unlockOfflineSetting(it.args[2] as Boolean)
+            val formats = InAppDownloadsPatch.getDownloadQualityFormatTypes(it.args[4] as List<*>, it.args[6])
+            it.args[4] = copyFormats.invoke(null, formats)
+        }
+    }
+    FormatTypeLabelFingerprint.hookMethod {
+        before {
+            val label = InAppDownloadsPatch.getDownloadQualityLabel(it.args[0])
+            if (label != 0) it.result = label
+        }
+    }
+    // TODO: Set ShowActionSheetCommand's skip-collapsed field at the download picker command write.
+    // TODO: Port OfflinePlaybackWorker.patch_setDownloadStartTime from OfflineDownloadResume.kt.
 
     // region In-app downloads.
 

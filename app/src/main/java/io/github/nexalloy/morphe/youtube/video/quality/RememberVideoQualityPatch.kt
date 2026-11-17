@@ -24,6 +24,8 @@ import io.github.nexalloy.morphe.youtube.video.format.videoFormatPatch
 import io.github.nexalloy.morphe.youtube.video.information.VideoInformationPatch
 import io.github.nexalloy.morphe.youtube.video.information.VideoQualityProxy
 import io.github.nexalloy.morphe.youtube.video.information.setQualityMenuIndexMethod
+import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_46_or_greater
+import io.github.nexalloy.hookMethod
 import io.github.nexalloy.patch
 import io.github.nexalloy.scopedHook
 
@@ -70,7 +72,7 @@ val RememberVideoQuality = patch {
         val initialResolutionField = ::InitialResolutionField.field
         after {
             val oldValue = initialResolutionField.get(it.thisObject)
-            val newValue = RememberVideoQualityPatch.getInitialVideoQuality(oldValue as Optional<*>?)
+            val newValue = RememberVideoQualityPatch.getInitialVideoQuality(oldValue as Optional<Int>)
             initialResolutionField.set(it.thisObject, newValue)
         }
     }
@@ -217,11 +219,11 @@ val RememberVideoQuality = patch {
         }
 
         val videoTrack = ::videoTrackTypeField.field.get(null)
-        val stopRequests = ::stopMediaRequestsMethod.method
-        val bufferManager = ::playbackBufferManagerField.field
-        val discardAfter = ::mediaSegmentHolderDiscardBufferAfterSegmentMethod.method
-        val getMedia = BufferManagerGetMediaSegmentHolderFingerprint.method
-        val firstEnd = ::firstSegmentEndTimeField.field
+        val stopRequests = (if (is_21_46_or_greater) ::obfuscatedStopRequestsMethod else ::stopMediaRequestsMethod).method
+        val bufferManager = (if (is_21_46_or_greater) ::obfuscatedBufferManagerField else ::playbackBufferManagerField).field
+        val discardAfter = (if (is_21_46_or_greater) ::obfuscatedMediaDiscardAfterMethod else ::mediaSegmentHolderDiscardBufferAfterSegmentMethod).method
+        val getMedia = if (is_21_46_or_greater) ::obfuscatedMediaGetMethod.method else BufferManagerGetMediaSegmentHolderFingerprint.method
+        val firstEnd = (if (is_21_46_or_greater) ::obfuscatedFirstSegmentEndTimeField else ::firstSegmentEndTimeField).field
         val discardBefore = if (is_21_43_or_greater) SampleHolderDiscardBufferBeforeSegmentFingerprint.method
             else SampleHolderDiscardBufferBeforeSegmentLegacyFingerprint.method
         fun discardBeforeSegment(media: Any, time: Long): Boolean {
@@ -230,7 +232,7 @@ val RememberVideoQuality = patch {
             else discardBefore.invoke(media, time)
             return before != firstEnd.getLong(media)
         }
-        PlaybackControllerClearBufferFingerprint.hookMethod {
+        (if (is_21_46_or_greater) ::obfuscatedClearBufferMethod.method else PlaybackControllerClearBufferFingerprint.method).hookMethod {
             before {
                 if (it.args[0] != videoTrack) return@before
                 val time = RememberVideoQualityPatch.getClearVideoBufferTime()
@@ -245,8 +247,8 @@ val RememberVideoQuality = patch {
         }
 
         // The inner call is reached only after the media source's live-stream time checks.
-        val sourceManager = ::mediaSourceBufferManagerField.field
-        MediaPushMediaSourceDiscardBufferFingerprint.hookMethod(scopedHook(::mediaSourcePrepareDiscardMethod.method) {
+        val sourceManager = (if (is_21_46_or_greater) ::obfuscatedSourceManagerField else ::mediaSourceBufferManagerField).field
+        (if (is_21_46_or_greater) ::obfuscatedSourceDiscardMethod.method else MediaPushMediaSourceDiscardBufferFingerprint.method).hookMethod(scopedHook((if (is_21_46_or_greater) ::obfuscatedSourcePrepareDiscardMethod else ::mediaSourcePrepareDiscardMethod).method) {
             after {
                 if (innerDepth == 0 && !it.hasThrowable() && it.thisObject === outerParam.thisObject &&
                     RememberVideoQualityPatch.shouldClearPlayedVideoSegment()) {

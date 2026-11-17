@@ -10,6 +10,7 @@ import io.github.nexalloy.morphe.shared.layout.returnyoutubedislike.votePayloadP
 import io.github.nexalloy.morphe.shared.layout.returnyoutubedislike.votePayloadTargetField
 import io.github.nexalloy.morphe.shared.layout.returnyoutubedislike.votePayloadUnpackMethod
 import io.github.nexalloy.morphe.shared.layout.returnyoutubedislike.voteVideoIdField
+import io.github.nexalloy.morphe.shared.misc.settings.preference.ListPreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.NonInteractivePreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.PreferenceCategory
 import io.github.nexalloy.morphe.shared.misc.settings.preference.PreferenceScreenPreference
@@ -49,6 +50,7 @@ val returnYouTubeDislikePatch = patch(
         SwitchPreference("morphe_ryd_dislike_percentage", summary = true),
         SwitchPreference("morphe_ryd_feed_like_count"),
         SwitchPreference("morphe_ryd_feed_like_ratio"),
+            ListPreference("morphe_ryd_feed_counts_position"),
         SwitchPreference("morphe_ryd_estimated_like", summary = true),
         SwitchPreference("morphe_ryd_toast_on_connection_error", summary = true),
         screenInfoPreferenceCategory(

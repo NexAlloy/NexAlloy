@@ -1,6 +1,8 @@
 package io.github.nexalloy.morphe.shared.misc.debugging
 
 import app.morphe.extension.shared.patches.EnableDebuggingPatch
+import app.morphe.extension.shared.settings.preference.ExportLogToClipboardPreference
+import app.morphe.extension.shared.settings.preference.FeatureFlagsManagerPreference
 import io.github.nexalloy.PatchExecutor
 import io.github.nexalloy.atLast
 import io.github.nexalloy.hookMethod
@@ -12,6 +14,7 @@ import io.github.nexalloy.morphe.shared.misc.settings.preference.PreferenceScree
 import io.github.nexalloy.morphe.shared.misc.settings.preference.PreferenceScreenPreference.Sorting
 import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
 import io.github.nexalloy.patch
+import java.lang.reflect.Method
 
 fun enableDebuggingPatch(
     block: PatchExecutor.() -> Unit = {},
@@ -19,7 +22,7 @@ fun enableDebuggingPatch(
     hookStringFeatureFlag: PatchExecutor.() -> Boolean,
     hookLongFeatureFlag: PatchExecutor.() -> Boolean,
     hookDoubleFeatureFlag: PatchExecutor.() -> Boolean,
-    hotFeatureFlags: PatchExecutor.() -> List<java.lang.reflect.Method>,
+    hotFeatureFlags: PatchExecutor.() -> List<Method>,
     preferenceScreen: BasePreferenceScreen.Screen,
     additionalDebugPreferences: List<BasePreference> = emptyList()
 ) = patch(
@@ -39,12 +42,12 @@ fun enableDebuggingPatch(
             SwitchPreference("morphe_debug_toast_on_error"),
             NonInteractivePreference(
                 "morphe_debug_export_logs",
-                tag = app.morphe.extension.shared.settings.preference.ExportLogToClipboardPreference::class.java,
+                tag = ExportLogToClipboardPreference::class.java,
                 selectable = true
             ),
             NonInteractivePreference(
                 "morphe_debug_feature_flags_manager",
-                tag = app.morphe.extension.shared.settings.preference.FeatureFlagsManagerPreference::class.java,
+                tag = FeatureFlagsManagerPreference::class.java,
                 selectable = true
             )
         )

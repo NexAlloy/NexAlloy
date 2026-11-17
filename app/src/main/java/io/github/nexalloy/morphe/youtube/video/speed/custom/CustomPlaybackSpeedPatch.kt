@@ -18,6 +18,7 @@ import io.github.nexalloy.morphe.youtube.shared.SpeedLimiterParentFingerprint
 import io.github.nexalloy.morphe.youtube.video.speed.settingsMenuVideoSpeedGroup
 import io.github.nexalloy.patch
 import io.github.nexalloy.scopedHook
+import java.lang.reflect.Array as ReflectArray
 
 val CustomPlaybackSpeed = patch(
     description = "Adds custom playback speed options.",
@@ -80,8 +81,8 @@ val CustomPlaybackSpeed = patch(
                 (it.invokeOriginalMethod() as Array<*>)
             }.flatMap { it.asIterable() }
 
-            val arr = java.lang.reflect.Array.newInstance(result.first()!!.javaClass, result.size)
-            result.forEachIndexed { i, v -> java.lang.reflect.Array.set(arr, i, v) }
+            val arr = ReflectArray.newInstance(result.first()!!.javaClass, result.size)
+            result.forEachIndexed { i, v -> ReflectArray.set(arr, i, v) }
 
             it.result = arr
         }

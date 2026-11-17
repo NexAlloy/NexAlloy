@@ -10,6 +10,7 @@ import io.github.nexalloy.morphe.Match
 import io.github.nexalloy.morphe.Opcode
 import io.github.nexalloy.morphe.fieldAccess
 import io.github.nexalloy.morphe.findFieldDirect
+import io.github.nexalloy.morphe.findMethodDirect
 import io.github.nexalloy.morphe.findMethodListDirect
 import io.github.nexalloy.morphe.literal
 import io.github.nexalloy.morphe.methodCall
@@ -126,7 +127,7 @@ internal object PageFragmentRouteFingerprint : Fingerprint(
 )
 
 @get:RequireAppVersion("21.35.000")
-val pageFragmentRouteFlagMethod = io.github.nexalloy.morphe.findMethodDirect {
+val pageFragmentRouteFlagMethod = findMethodDirect {
     val reference = PageFragmentRouteFingerprint.instructionMatches[2].instruction.methodRef!!
     // Hook the concrete bootstrap store, rather than its interface declaration.
     Fingerprint(

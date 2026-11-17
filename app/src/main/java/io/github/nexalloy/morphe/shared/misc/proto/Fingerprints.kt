@@ -51,5 +51,5 @@ val resourceBytesMethod = findMethodDirect {
             methodCall(reference = parser),
             opcode(Opcode.ARRAY_LENGTH)
         )
-    ).match().method
+    )()
 }

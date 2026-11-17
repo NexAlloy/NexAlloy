@@ -23,6 +23,7 @@ import io.github.nexalloy.morphe.shared.misc.settings.preference.NonInteractiveP
 import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.TextPreference
 import io.github.nexalloy.morphe.youtube.insertLiteralOverride
+import io.github.nexalloy.morphe.youtube.interaction.onthego.onTheGoStateHookPatch
 import io.github.nexalloy.morphe.youtube.interaction.seekbar.SeekbarUpdatePointFingerprint
 import io.github.nexalloy.morphe.youtube.interaction.seekbar.SlideSeekbarHandlerConstructorFingerprint
 import io.github.nexalloy.morphe.youtube.interaction.seekbar.slideSeekbarControllerField
@@ -45,6 +46,7 @@ val SwipeControls = patch(
         PlayerTypeHook,
         VideoInformationPatch,
         soundBoostPatch,
+        onTheGoStateHookPatch,
         VersionCheck
     )
 

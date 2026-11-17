@@ -12,6 +12,7 @@ import io.github.nexalloy.morphe.newInstance
 import io.github.nexalloy.morphe.string
 import io.github.nexalloy.morphe.opcode
 import io.github.nexalloy.morphe.shared.FormatStreamModelToStringFingerprint
+import org.luckypray.dexkit.DexKitBridge
 
 internal object VideoStreamingDataToStringFingerprint : Fingerprint(
     name = "toString",
@@ -32,7 +33,7 @@ internal object VideoStreamingDataConstructorFingerprint : Fingerprint(
     )
 )
 
-context(dexkit: org.luckypray.dexkit.DexKitBridge)
+context(dexkit: DexKitBridge)
 private fun formatField(name: String) = FormatStreamModelToStringFingerprint().let { model ->
     val method = model.findMethodFromToString(name)
     Fingerprint(

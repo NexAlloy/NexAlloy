@@ -1,7 +1,12 @@
 package io.github.nexalloy.morphe.youtube.video.speed.remember
 
+import android.content.Context
+import app.morphe.extension.youtube.patches.playback.speed.CustomPlaybackSpeedPatch
 import app.morphe.extension.youtube.patches.playback.speed.RememberPlaybackSpeedPatch
 import app.morphe.extension.youtube.settings.preference.CustomVideoSpeedListPreference
+import io.github.nexalloy.hookMethod
+import io.github.nexalloy.morphe.ResourceType
+import io.github.nexalloy.morphe.getResourceId
 import io.github.nexalloy.morphe.shared.misc.settings.preference.ListPreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
 import io.github.nexalloy.morphe.youtube.misc.playservice.VersionCheck
@@ -71,7 +76,19 @@ val RememberPlaybackSpeed = patch {
     if (is_21_11_or_greater) {
         val setSpeed = ::speedmasterSetSpeedMethod.method
         SpeedmasterStartFingerprint.hookMethod(scopedHook(setSpeed) {
-            before { RememberPlaybackSpeedPatch.onSpeedmasterStarted() }
+            before {
+                RememberPlaybackSpeedPatch.onSpeedmasterStarted()
+                it.args[0] = CustomPlaybackSpeedPatch.getTapAndHoldSpeed()
+            }
+        })
+        val textId = getResourceId(ResourceType.STRING, "reel_speedmaster_indicator_text").toInt()
+        val getString = Context::class.java.getDeclaredMethod("getString", Int::class.javaPrimitiveType)
+        SpeedmasterStartFingerprint.hookMethod(scopedHook(getString) {
+            after {
+                if (it.args[0] == textId) {
+                    it.result = CustomPlaybackSpeedPatch.getShortsTapAndHoldText(it.result as String)
+                }
+            }
         })
     }
 

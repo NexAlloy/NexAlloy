@@ -411,11 +411,11 @@ internal val currentPlaybackApplyResponseMethod = findMethodDirect {
 
 internal val currentPlaybackMethod = findMethodDirect {
     val type = channelInformationMethods().first().paramTypes.first().descriptor
-    currentPlaybackFingerprint(type).match().method
+    currentPlaybackFingerprint(type)()
 }
 
 internal val videoQualityFormatIdsField = findFieldDirect {
-    val constructor = io.github.nexalloy.morphe.youtube.shared.VideoQualityChangedFingerprint
+    val constructor = VideoQualityChangedFingerprint
         .instructionMatches.last().instruction.methodRef!!
     constructor.declaredClass!!.fields.single { it.type == constructor.paramTypes.last() }
 }
