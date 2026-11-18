@@ -46,7 +46,7 @@ val SettingsHook = patch(
 
     // Add an "About" preference to the top.
     preferences += NonInteractivePreference(
-        key = "morphe_settings_music_screen_0_about",
+        key = "morphe_settings_music_screen_00_about",
         summaryKey = null,
         icon = "@drawable/morphe_settings_screen_00_about",
         iconBold = "@drawable/morphe_settings_screen_00_about_bold",

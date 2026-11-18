@@ -1,4 +1,5 @@
 import com.google.protobuf.gradle.proto
+import groovy.json.JsonGenerator
 import groovy.xml.MarkupBuilder
 import groovy.xml.XmlSlurper
 import groovy.xml.slurpersupport.NodeChild
@@ -194,6 +195,9 @@ abstract class GenerateStringsTask @Inject constructor(
     @get:OutputDirectory
     abstract val outputDirectory: DirectoryProperty
 
+    @get:OutputDirectory
+    abstract val assetsDirectory: DirectoryProperty
+
     private fun writeNode(builder: MarkupBuilder, node: Any?) {
         if (node !is NodeChild) return
         val attributes = node.attributes()
@@ -210,59 +214,115 @@ abstract class GenerateStringsTask @Inject constructor(
         }
     }
 
-    /**
-     * Morphe addresources structure:
-     *   values/youtube/strings.xml, values/shared/strings.xml, etc.
-     * Each XML is flat: <resources> <string name="...">...</string> ... </resources>
-     *
-     * Merge all subdirectory XMLs into a single output file per variant.
-     */
-    private fun mergeResources(inputFiles: List<File>, output: File) {
+    private fun readResources(inputFiles: List<File>): List<NodeChild> = buildList {
+        val keys = mutableSetOf<String>()
+        for (inputFile in inputFiles) {
+            if (!inputFile.exists()) continue
+            XmlSlurper().parse(inputFile).children().forEach {
+                if (it !is NodeChild) return@forEach
+                val key = it.attributes()["name"] as? String ?: return@forEach
+                if (keys.add(key)) add(it)
+            }
+        }
+    }
+
+    private fun writeResources(resources: List<NodeChild>, output: File, translationsFile: String? = null) {
         output.parentFile.mkdirs()
         output.writer().use { writer ->
             val builder = MarkupBuilder(writer)
             builder.doubleQuotes = true
             builder.withGroovyBuilder {
-                val keys = mutableSetOf<String>()
                 "resources" {
-                    for (inputFile in inputFiles) {
-                        if (!inputFile.exists()) continue
-                        val inputXml = XmlSlurper().parse(inputFile)
-                        // Flat structure: direct children of <resources>
-                        inputXml.children().forEach {
-                            if (it !is NodeChild) return@forEach
-                            val key = it.attributes()["name"] as? String ?: return@forEach
-                            if (keys.contains(key)) return@forEach
-                            writeNode(builder, it)
-                            keys.add(key)
-                        }
+                    resources.forEach { writeNode(builder, it) }
+                    if (translationsFile != null) {
+                        "string"(mapOf("name" to "morphe_translations_file"), translationsFile)
                     }
                 }
             }
         }
     }
 
+    // Same Android string decoding as upstream TranslationsJson.resolve.
+    private fun resolveString(text: String): String {
+        val result = StringBuilder()
+        var quoted = false
+        var pendingSpace = false
+        var index = 0
+        while (index < text.length) {
+            val char = text[index++]
+            if (!quoted && (char == ' ' || char == '\n' || char == '\t' || char == '\r')) {
+                pendingSpace = result.isNotEmpty()
+                continue
+            }
+            if (pendingSpace) {
+                result.append(' ')
+                pendingSpace = false
+            }
+            when (char) {
+                '"' -> quoted = !quoted
+                '\\' -> if (index < text.length) {
+                    when (val escaped = text[index++]) {
+                        'n' -> result.append('\n')
+                        't' -> result.append('\t')
+                        'u' -> {
+                            result.append(text.substring(index, index + 4).toInt(16).toChar())
+                            index += 4
+                        }
+                        else -> result.append(escaped)
+                    }
+                }
+                else -> result.append(char)
+            }
+        }
+        return result.toString()
+    }
+
     // Subdirectories within each variant that contain resource files.
     private val subDirs = listOf("shared", "shared-youtube", "youtube", "music", "reddit", "sponsorblock")
+
+    // YouTube reads the injected settings labels directly from native preference XML.
+    private val nativeSettingsLabels = setOf("morphe_settings_title", "morphe_settings_submenu_title")
 
     @TaskAction
     fun action() {
         val inputDir = inputDirectory.get().asFile
         val outputDir = outputDirectory.get().asFile
+        val assetsDir = assetsDirectory.get().asFile
+        val defaultNames = readResources(subDirs.map { File(inputDir, "values/$it/strings.xml") })
+            .mapTo(hashSetOf()) { it.attributes()["name"] as String }
+
+        outputDir.deleteRecursively()
+        assetsDir.deleteRecursively()
+        assetsDir.mkdirs()
 
         runCatching {
             // Process each variant directory (values, values-xx-rYY, ...)
             inputDir.listFiles()?.filter { it.isDirectory }?.forEach { variant ->
                 val genResDir = File(outputDir, variant.name).apply { mkdirs() }
 
-                // Merge strings.xml from all subdirectories
                 val stringFiles = subDirs.map { File(variant, "$it/strings.xml") }
-                mergeResources(stringFiles, File(genResDir, "strings.xml"))
+                val locale = variant.name.removePrefix("values-")
+                if (variant.name == "values") {
+                    writeResources(readResources(stringFiles), File(genResDir, "strings.xml"), "")
+                } else {
+                    val strings = readResources(stringFiles)
+                    val translations = strings
+                        .filter { it.attributes()["name"] in defaultNames }
+                        .associate { it.attributes()["name"] as String to resolveString(it.text()) }
+                    File(assetsDir, "morphe/strings/$locale.json").apply {
+                        parentFile.mkdirs()
+                        writeText(JsonGenerator.Options().disableUnicodeEscaping().build().toJson(translations))
+                    }
+                    writeResources(
+                        strings.filter { it.attributes()["name"] in nativeSettingsLabels },
+                        File(genResDir, "strings.xml"), locale
+                    )
+                }
 
                 // Merge arrays.xml from all subdirectories
                 val arrayFiles = subDirs.map { File(variant, "$it/arrays.xml") }
                 if (arrayFiles.any { it.exists() }) {
-                    mergeResources(arrayFiles, File(genResDir, "arrays.xml"))
+                    writeResources(readResources(arrayFiles), File(genResDir, "arrays.xml"))
                 }
             }
         }.onFailure {
@@ -329,6 +389,9 @@ androidComponents {
         }
         variant.sources.res?.addGeneratedSourceDirectory(
             strTask, GenerateStringsTask::outputDirectory
+        )
+        variant.sources.assets?.addGeneratedSourceDirectory(
+            strTask, GenerateStringsTask::assetsDirectory
         )
 
         val resTask = project.tasks.register<CopyResourcesTask>("copyResources$variantName") {

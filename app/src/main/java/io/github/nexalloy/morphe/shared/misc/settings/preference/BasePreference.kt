@@ -29,7 +29,7 @@ abstract class BasePreference(
         resources: Resources = Utils.getContext().resources,
         pkg: String = BuildConfig.APPLICATION_ID,
         setString: (str: String) -> Unit
-    ) = trySetRes(key, "string", resources, pkg) { res, id -> setString(resources.getString(id)) }
+    ) = trySetRes(key, "string", resources, pkg) { _, id -> setString(ResourceUtils.getString(id)) }
 
     fun trySetRes(
         key: String?,
