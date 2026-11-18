@@ -67,6 +67,9 @@ app/binaries/
 Confirm the intended
 APKs appear in `app/build/reports/fingerprints/testDebugUnitTest.json`.
 
+For YouTube Music, one `arm64-v8a` APK per version name is sufficient. Check
+required version names against the report's actual APK inputs.
+
 The input discovery and application routing are implemented in
 [FilePathArgumentsProvider.kt](../../../app/src/test/java/io/github/nexalloy/FilePathArgumentsProvider.kt)
 and [FingerprintTestReport.kt](../../../app/src/test/java/io/github/nexalloy/FingerprintTestReport.kt).
