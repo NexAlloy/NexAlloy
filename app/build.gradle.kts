@@ -136,6 +136,14 @@ kotlin {
 }
 tasks.withType<Test> {
     useJUnitPlatform()
+    val nativeLibraries = layout.projectDirectory.dir(
+        if (System.getProperty("os.name") == "Linux" &&
+            System.getProperty("os.arch") in listOf("aarch64", "arm64")
+        ) "src/test/jniLibs/linux-arm64" else "src/test/jniLibs"
+    )
+    systemProperty("java.library.path", nativeLibraries.asFile.absolutePath)
+    inputs.files(fileTree(nativeLibraries)).withPropertyName("dexkitNativeLibraries")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
     val fingerprintReport = layout.buildDirectory.file("reports/fingerprints/$name.json")
     systemProperty("fingerprints.report", fingerprintReport.get().asFile.absolutePath)
     inputs.files(fileTree("binaries")).withPropertyName("fingerprintApks")
