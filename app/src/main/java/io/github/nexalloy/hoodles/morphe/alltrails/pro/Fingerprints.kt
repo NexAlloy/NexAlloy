@@ -8,6 +8,7 @@ object IsProFingerprint : Fingerprint(
 )
 
 object GetSubscriptionTierFingerprint : Fingerprint(
+    classFingerprint = IsProFingerprint,
     name = "getSubscriptionTier",
     returnType = "Ljava/lang/String;",
 )
