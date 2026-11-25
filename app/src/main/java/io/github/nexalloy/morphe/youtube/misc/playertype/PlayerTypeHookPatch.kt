@@ -24,7 +24,7 @@ val PlayerTypeHook = patch(
         }
     }
 
-    ::videoStateFingerprint.hookMethod {
+    VideoStateFingerprint.hookMethod {
         val field = ::videoStateParameterField.field
         before { param ->
             PlayerTypeHookPatch.setVideoState(field.get(param.args[0]) as Enum<*>)

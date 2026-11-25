@@ -10,7 +10,7 @@ fun addSearchResultsHook(hook: () -> Unit) { searchResultsHooks += hook }
 
 internal val browseIdHookPatch = patch {
     val getBrowseId = ::browserIdMethod.method
-    ::BrowseFragmentTarget.hookMethod {
+    BrowseFragmentTargetFingerprint.hookMethod {
         after {
             val browseId = getBrowseId.invoke(null, it.args[0]) as String?
             browseIdHooks.forEach { hook -> hook(browseId) }

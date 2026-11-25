@@ -5,21 +5,23 @@ import android.os.Build
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import app.morphe.extension.shared.innertube.BrowseResponseOuterClass.BrowseTab
+import app.morphe.extension.shared.innertube.BrowseResponseOuterClass.TabRenderer
+import app.morphe.extension.shared.innertube.GuideResponseOuterClass.ButtonRenderer
+import app.morphe.extension.shared.innertube.GuideResponseOuterClass.PivotBarItemBytes
+import app.morphe.extension.shared.innertube.GuideResponseOuterClass.PivotBarItemRenderer
 import app.morphe.extension.shared.settings.preference.SeekBarPreference
-import app.morphe.extension.youtube.innertube.BrowseResponseOuterClass.BrowseTab
-import app.morphe.extension.youtube.innertube.BrowseResponseOuterClass.TabRenderer
-import app.morphe.extension.youtube.innertube.GuideResponseOuterClass.ButtonRenderer
-import app.morphe.extension.youtube.innertube.GuideResponseOuterClass.PivotBarItemBytes
-import app.morphe.extension.youtube.innertube.GuideResponseOuterClass.PivotBarItemRenderer
 import app.morphe.extension.youtube.patches.ClassicSubscriptionsLayoutPatch
 import app.morphe.extension.youtube.patches.NavigationBarPatch
-import app.morphe.extension.youtube.settings.preference.YouTubeGlassNavigationBarPreference
 import app.morphe.extension.youtube.settings.preference.NavigationButtonsOrderPreference
+import app.morphe.extension.youtube.settings.preference.YouTubeGlassNavigationBarPreference
 import com.google.protobuf.ExtensionRegistryLite
 import com.google.protobuf.MessageLite
+import de.robv.android.xposed.XposedBridge
 import io.github.nexalloy.HookDsl
 import io.github.nexalloy.IScopedHookCallback
 import io.github.nexalloy.callMethod
+import io.github.nexalloy.createProxy
 import io.github.nexalloy.hookMethod
 import io.github.nexalloy.morphe.setExtensionIsPatchIncluded
 import io.github.nexalloy.morphe.shared.misc.settings.preference.ListPreference
@@ -42,13 +44,16 @@ import io.github.nexalloy.morphe.youtube.misc.navigation.addBottomBarContainerHo
 import io.github.nexalloy.morphe.youtube.misc.navigation.hookNavigationButtonCreated
 import io.github.nexalloy.morphe.youtube.misc.playservice.VersionCheck
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_20_31_or_greater
+import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_20_or_greater
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_23_or_greater
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_35_or_greater
+import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_42_or_greater
 import io.github.nexalloy.morphe.youtube.misc.settings.PreferenceScreen
 import io.github.nexalloy.patch
 import io.github.nexalloy.scopedHook
 import java.lang.reflect.Field
 import java.lang.reflect.Method
+import java.util.WeakHashMap
 import org.luckypray.dexkit.wrap.DexMethod
 
 private lateinit var navigationBarPaddingField: Field
@@ -306,19 +311,44 @@ val NavigationBar = patch(
 
     // TODO Narrow navigation buttons
 
-    // disableAutoHidingNavigationBar
-
     if (is_20_31_or_greater) {
-        buildList {
-            add(AutoHideNavigationBarOnFeedScrollingFingerprint)
-            if (is_21_23_or_greater) add(AutoHideNavigationBarOnDismissMiniplayerFingerprint)
-        }.forEach {
-            it.hookMethod {
-                before { param ->
-                    if (NavigationBarPatch.disableAutoHidingNavigationBar()) {
-                        param.result = null
+        AutoHideNavigationBarOnFeedScrollingFingerprint.hookMethod(scopedHook(::feedScrollBehaviorMethod.method) {
+            after { it.result = NavigationBarPatch.getFeedScrollNavigationBarBehavior() }
+        })
+        if (!is_21_20_or_greater) {
+            insertLiteralOverride(45677535L, NavigationBarPatch::useAutoHideNavigationBarFlag)
+        }
+        addBottomBarContainerHook(NavigationBarPatch::hideNavigationBar)
+        ListScrolledFingerprint.hookMethod {
+            before { NavigationBarPatch.onListScrolled(it.thisObject as View, it.args[1] as Int) }
+        }
+        val setHeight = SetBottomUiHeightFingerprint.method
+        val adapters = WeakHashMap<Any, NavigationBarPatch.BottomUiHeightsAccess>()
+        setHeight.hookMethod {
+            before {
+                val adapter = adapters.getOrPut(it.thisObject) {
+                    it.thisObject.createProxy { reference ->
+                        NavigationBarPatch.BottomUiHeightsAccess { view, height ->
+                            reference.get()?.let { host ->
+                                XposedBridge.invokeOriginalMethod(setHeight, host, arrayOf(view, height))
+                            }
+                        }
                     }
                 }
+                it.args[1] = NavigationBarPatch.getBottomUiHeight(adapter, it.args[0] as Enum<*>, it.args[1] as Int)
+            }
+        }
+        if (is_21_42_or_greater) {
+            val skipHide: HookDsl<IScopedHookCallback>.() -> Unit = { before { it.result = null } }
+            val controllers = ::searchScrollHideControllerMethods.dexMethodList.map { it.toMethod() } +
+                    ::searchScrollNewControllerMethod.method
+            SearchResultsAutoHideNavigationBarFingerprint.hookMethod(scopedHook(
+                *controllers.map { it to skipHide }.toTypedArray()
+            ))
+        }
+        if (is_21_23_or_greater) {
+            AutoHideNavigationBarOnDismissMiniplayerFingerprint.hookMethod {
+                before { if (NavigationBarPatch.disableAutoHidingNavigationBar()) it.result = null }
             }
         }
     }
@@ -334,9 +364,9 @@ val NavigationBar = patch(
         // Add back the Subscriptions button, if the server moved it to a tab of Home.
         // Use the host's offline navigation factory so the browse endpoint extension is set.
         val itemFactory = PivotBarItemProtoFactoryFingerprint.method
-        val iconLookup = ::pivotBarIconTypeLookupMethod.method
+        val iconLookup = PivotBarIconTypeLookupFingerprint.method
         val renderItem = PivotBarRendererFingerprint.method
-        val listBuilder = ::pivotBarRendererListBuilderMethod.method
+        val listBuilder = PivotBarRendererListBuilderFingerprint.method
         PivotBarRendererListFingerprint.hookMethod(scopedHook(::pivotBarRendererListMethod.method) {
             after {
                 if (innerDepth != 0 || it.args[0] !== outerParam.args[0]) return@after

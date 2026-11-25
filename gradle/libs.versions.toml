@@ -17,6 +17,7 @@ protobuf = "0.10.0"
 protoc = "4.36.2"
 collections4 = "4.6.0"
 lang3 = "3.20.0"
+hiddenapibypass = "6.1"
 
 
 [libraries]
@@ -37,6 +38,7 @@ protobuf-protoc = { module = "com.google.protobuf:protoc", version.ref = "protoc
 androidx-javascriptengine = { module = "androidx.javascriptengine:javascriptengine", version.ref = "androidx-javascriptengine" }
 collections4 = { module = "org.apache.commons:commons-collections4", version.ref = "collections4" }
 lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "lang3" }
+hiddenapibypass = { module = "org.lsposed.hiddenapibypass:hiddenapibypass", version.ref = "hiddenapibypass" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

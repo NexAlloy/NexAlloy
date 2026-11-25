@@ -1,6 +1,7 @@
 package io.github.nexalloy.morphe.shared.misc.litho.filter
 
 import io.github.nexalloy.AllowAbstract
+import io.github.nexalloy.RequireAppVersion
 import io.github.nexalloy.TargetApp
 import io.github.nexalloy.morphe.AccessFlags
 import io.github.nexalloy.morphe.Fingerprint
@@ -234,16 +235,17 @@ internal object ListSectionUpdateRowsFingerprint : Fingerprint(
     )
 )
 
-@get:TargetApp("youtube")
-internal val commandEventDataDecoratorsMethod = findMethodDirect {
-    val field = ConversionContextToStringFingerprint().findFieldFromToString(", globalCommandEventDataDecoratorsInternal=")
-    Fingerprint(
-        definingClass = field.declaredClass!!.descriptor,
-        returnType = field.typeSign,
-        parameters = emptyList(),
-        filters = listOf(fieldAccess(opcode = Opcode.IGET_OBJECT, reference = field))
-    )()
-}
+context(_: DexKitBridge)
+private fun commandEventDataDecoratorsField() =
+    ConversionContextToStringFingerprint().findFieldFromToString(", globalCommandEventDataDecoratorsInternal=")
+
+@TargetApp("youtube")
+internal object CommandEventDataDecoratorsFingerprint : Fingerprint(
+    definingClass = { commandEventDataDecoratorsField().declaredClass!!.descriptor },
+    returnType = { commandEventDataDecoratorsField().typeSign },
+    parameters = { emptyList() },
+    filters = listOf(fieldAccess(opcode = Opcode.IGET_OBJECT, reference = { commandEventDataDecoratorsField() }))
+)
 
 @get:TargetApp("youtube")
 internal val listItemDataField = findFieldDirect {
@@ -319,7 +321,8 @@ internal object StickyHeaderRestoreItemFingerprint : Fingerprint(
 /**
  * Creates the sticky copy of the header, at the position saved when the copy was posted.
  */
-internal fun stickyHeaderCreateFingerprint(stickyHeadersType: String) = Fingerprint(
+@TargetApp("youtube")
+internal object StickyHeaderCreateFingerprint : Fingerprint(
     name = "run",
     returnType = "V",
     parameters = listOf(),
@@ -327,7 +330,7 @@ internal fun stickyHeaderCreateFingerprint(stickyHeadersType: String) = Fingerpr
         methodCall(definingClass = "Landroid/view/ViewGroup;", name = "removeView"),
         fieldAccess(
             opcode = Opcode.IGET_OBJECT,
-            definingClass = stickyHeadersType,
+            definingClass = { StickyHeadersFingerprint().declaredClass!!.descriptor },
             type = "Landroid/view/ViewGroup;",
             location = MatchAfterWithin(4)
         ),
@@ -337,7 +340,7 @@ internal fun stickyHeaderCreateFingerprint(stickyHeadersType: String) = Fingerpr
         methodCall(parameters = listOf("Landroid/view/ViewGroup;", "I"), location = MatchAfterWithin(2)),
         fieldAccess(
             opcode = Opcode.IPUT_OBJECT,
-            definingClass = stickyHeadersType,
+            definingClass = { StickyHeadersFingerprint().declaredClass!!.descriptor },
             type = "Landroid/view/View;",
             location = MatchAfterWithin(3)
         ),
@@ -383,14 +386,10 @@ internal fun stickyHeaderEntryCompareFingerprint(entryType: String) = Fingerprin
 
 // endregion
 
-@get:TargetApp("youtube")
-val stickyHeaderCreateMethod = findMethodDirect {
-    stickyHeaderCreateFingerprint(StickyHeadersFingerprint().declaredClass!!.descriptor)()
-}
 
 context(_: DexKitBridge)
 private fun stickyCreateMatch() =
-    stickyHeaderCreateFingerprint(StickyHeadersFingerprint().declaredClass!!.descriptor).match()
+    StickyHeaderCreateFingerprint.match()
 
 context(_: DexKitBridge)
 private fun stickyCurrentIdMatch() = stickyCreateMatch().instructionMatches.last().instruction.methodRef!!.let {
@@ -431,7 +430,7 @@ val stickyHeaderSavedPositionField = findFieldDirect {
 
 @get:TargetApp("youtube")
 val stickyHeaderOwnerField = findFieldDirect {
-    val method = stickyHeaderCreateMethod()
+    val method = StickyHeaderCreateFingerprint()
     val ownerType = StickyHeadersFingerprint().declaredClass!!.descriptor
     method.declaredClass!!.fields.singleOrNull { it.typeSign == ownerType } ?: run {
         // R8 merged lambdas store the captured owner as Object before casting it.
@@ -465,4 +464,72 @@ internal object ElementItemConstructorFingerprint : Fingerprint(
 )
 val gridElementBytesField = findFieldDirect {
     ElementItemConstructorFingerprint.instructionMatches[1].instruction.fieldRef!!
+}
+
+@TargetApp("youtube")
+@RequireAppVersion(minVersion = "21.06.000")
+internal object ReorderedListSectionFingerprint : Fingerprint(
+    returnType = "V",
+    parameters = listOf(),
+    filters = listOf(
+        // The lists of the section, copied to know if the order changed.
+        fieldAccess(opcode = Opcode.IGET_OBJECT, type = "Ljava/util/List;"),
+        methodCall(
+            definingClass = "Ljava/util/ArrayList;",
+            name = "<init>",
+            parameters = listOf("Ljava/util/Collection;"),
+            location = MatchAfterWithin(3)
+        ),
+        methodCall(definingClass = "Ljava/util/List;", name = "indexOf"),
+        methodCall(definingClass = "Ljava/util/Collections;", name = "swap", location = MatchAfterWithin(3)),
+        methodCall(definingClass = "Ljava/util/List;", name = "equals")
+    )
+)
+
+@TargetApp("youtube")
+@RequireAppVersion(minVersion = "21.06.000")
+internal object ReorderedListSectionRemoveListFingerprint : Fingerprint(
+    classFingerprint = ReorderedListSectionFingerprint,
+    returnType = "V",
+    filters = listOf(
+        opcode(Opcode.INVOKE_SUPER),
+        methodCall(definingClass = "Ljava/util/List;", name = "size", location = MatchAfterWithin(3)),
+        // The removed list.
+        fieldAccess(opcode = Opcode.IGET_OBJECT, location = MatchAfterWithin(10)),
+        opcode(Opcode.IF_NE, location = MatchAfterImmediately()),
+        methodCall(
+            definingClass = "Ljava/util/List;",
+            name = "remove",
+            parameters = listOf("I"),
+            location = MatchAfterImmediately()
+        )
+    )
+)
+
+@get:TargetApp("youtube")
+@get:RequireAppVersion(minVersion = "21.06.000")
+internal val reorderedSectionListsField = findFieldDirect {
+    ReorderedListSectionFingerprint.instructionMatches.first().instruction.fieldRef!!
+}
+@get:TargetApp("youtube")
+@get:RequireAppVersion(minVersion = "21.06.000")
+internal val reorderedSectionListField = findFieldDirect {
+    ReorderedListSectionRemoveListFingerprint.instructionMatches[2].instruction.fieldRef!!
+}
+@get:TargetApp("youtube")
+@get:RequireAppVersion(minVersion = "21.06.000")
+@get:AllowAbstract
+internal val reorderedListItemCountMethod = findMethodDirect {
+    val type = reorderedSectionListsField().declaredClass!!.descriptor
+    val count = Fingerprint(
+        definingClass = type, name = "isEmpty", returnType = "Z", parameters = listOf(),
+        filters = listOf(methodCall(opcode = Opcode.INVOKE_VIRTUAL, definingClass = "this", returnType = "I", parameters = listOf()))
+    ).instructionMatches.first().instruction.methodRef!!
+    // NexAlloy: invoke through the list interface shared by every section implementation.
+    Fingerprint(
+        definingClass = reorderedSectionListField().type.descriptor,
+        name = count.name,
+        returnType = "I",
+        parameters = listOf()
+    )()
 }

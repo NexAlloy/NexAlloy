@@ -20,7 +20,7 @@ internal fun PatchExecutor.navigationIntentHook(
 ) {
     val enumField = ::navigationIntentField.field
     val methods = ::navigationIntentMethods.dexMethodList +
-            if (includePlayerButtons) listOf(::navigationPlayerButtonsMethod.dexMethod) else emptyList()
+            if (includePlayerButtons) listOf(NavigationPlayerButtonsFingerprint.dexMethod) else emptyList()
     methods.forEach { method ->
         method.hookMethod {
             before {

@@ -1,5 +1,7 @@
 package io.github.nexalloy.morphe
 
+import org.luckypray.dexkit.DexKitBridge
+
 import de.robv.android.xposed.XC_MethodReplacement
 import io.github.nexalloy.hookMethod
 import io.github.nexalloy.morphe.Opcode.ADD_DOUBLE
@@ -389,6 +391,7 @@ fun MethodData.indexOfFirstInstruction(startIndex: Int = 0, filter: InstructionD
  * @return -1 if the instruction is not found.
  * @see indexOfFirstInstructionOrThrow
  */
+context(bridge: DexKitBridge)
 fun MethodData.indexOfFirstInstruction(filter: InstructionFilter): Int = indexOfFirstInstruction(0, filter)
 
 /**
@@ -398,6 +401,7 @@ fun MethodData.indexOfFirstInstruction(filter: InstructionFilter): Int = indexOf
  * @return -1 if the instruction is not found.
  * @see indexOfFirstInstructionOrThrow
  */
+context(bridge: DexKitBridge)
 fun MethodData.indexOfFirstInstruction(startIndex: Int = 0, filter: InstructionFilter): Int {
     val method = this
     return indexOfFirstInstruction(startIndex) { filter.matches(method, this) }
@@ -443,6 +447,7 @@ fun MethodData.indexOfFirstInstructionOrThrow(startIndex: Int = 0, filter: Instr
  * @throws PatchException
  * @see indexOfFirstInstruction
  */
+context(bridge: DexKitBridge)
 fun MethodData.indexOfFirstInstructionOrThrow(filter: InstructionFilter): Int = indexOfFirstInstructionOrThrow(0, filter)
 
 /**
@@ -452,6 +457,7 @@ fun MethodData.indexOfFirstInstructionOrThrow(filter: InstructionFilter): Int = 
  * @throws PatchException
  * @see indexOfFirstInstruction
  */
+context(bridge: DexKitBridge)
 fun MethodData.indexOfFirstInstructionOrThrow(startIndex: Int = 0, filter: InstructionFilter): Int {
     val method = this
     return indexOfFirstInstructionOrThrow(startIndex) { filter.matches(method, this) }
@@ -493,6 +499,7 @@ fun MethodData.indexOfFirstInstructionReversedOrThrow(startIndex: Int? = null, f
  * @throws PatchException
  * @see indexOfFirstInstructionReversed
  */
+context(bridge: DexKitBridge)
 fun MethodData.indexOfFirstInstructionReversedOrThrow(filter: InstructionFilter): Int = indexOfFirstInstructionReversedOrThrow(null, filter)
 
 /**
@@ -503,6 +510,7 @@ fun MethodData.indexOfFirstInstructionReversedOrThrow(filter: InstructionFilter)
  * @return The index of the instruction.
  * @see indexOfFirstInstructionReversed
  */
+context(bridge: DexKitBridge)
 fun MethodData.indexOfFirstInstructionReversedOrThrow(startIndex: Int? = null, filter: InstructionFilter): Int {
     val method = this
     return indexOfFirstInstructionReversedOrThrow(startIndex) {

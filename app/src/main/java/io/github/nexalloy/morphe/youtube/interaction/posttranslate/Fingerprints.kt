@@ -17,6 +17,8 @@ import io.github.nexalloy.morphe.findMethodDirect
 import io.github.nexalloy.morphe.methodCall
 import io.github.nexalloy.morphe.shared.misc.litho.relayout.COMPONENT_HOST_CLASS
 import io.github.nexalloy.morphe.shared.misc.litho.relayout.COMPONENT_TEXT_CONTENT
+import io.github.nexalloy.morphe.shared.misc.litho.relayout.LithoTextDrawableDrawFingerprint
+import io.github.nexalloy.morphe.shared.misc.litho.relayout.LithoTextDrawableGetTextItemsFingerprint
 
 /**
  * Collects the texts of the contents mounted in the host. The contents are taken from the
@@ -68,45 +70,6 @@ internal object ComponentHostGetTextContentFingerprint : Fingerprint(
             opcode = Opcode.INVOKE_STATIC,
             returnType = COMPONENT_TEXT_CONTENT,
             parameters = listOf("Ljava/util/List;")
-        )
-    )
-)
-
-/**
- * The text of the Litho text drawable.
- */
-internal object LithoTextDrawableGetTextItemsFingerprint : Fingerprint(
-    superclass = "Landroid/graphics/drawable/Drawable;",
-    interfaces = listOf(COMPONENT_TEXT_CONTENT),
-    name = "getTextItems",
-    returnType = "Ljava/util/List;",
-    parameters = listOf(),
-    filters = listOf(
-        fieldAccess(
-            opcode = Opcode.IGET_OBJECT,
-            definingClass = "this",
-            type = "Ljava/lang/CharSequence;"
-        ),
-        methodCall(
-            smali = "Ljava/util/Collections;->singletonList(Ljava/lang/Object;)Ljava/util/List;",
-            location = MatchAfterWithin(3)
-        )
-    )
-)
-
-/**
- * Draws the text layout of the Litho text drawable.
- */
-internal object LithoTextDrawableDrawFingerprint : Fingerprint(
-    classFingerprint = LithoTextDrawableGetTextItemsFingerprint,
-    name = "draw",
-    returnType = "V",
-    parameters = listOf("Landroid/graphics/Canvas;"),
-    filters = listOf(
-        fieldAccess(
-            opcode = Opcode.IGET_OBJECT,
-            definingClass = "this",
-            type = "Landroid/text/Layout;"
         )
     )
 )

@@ -1,6 +1,5 @@
 package io.github.nexalloy.morphe.youtube.interaction.channelsearch
 
-import app.morphe.extension.shared.ResourceUtils
 import app.morphe.extension.youtube.patches.ChannelSearchPatch
 import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
 import io.github.nexalloy.morphe.youtube.misc.navigation.addBrowseIdHook
@@ -28,22 +27,4 @@ val channelSearchPatch = patch(
     addBrowseIdHook(ChannelSearchPatch::setBrowseId)
     addSearchResultsHook(ChannelSearchPatch::clearBrowseId)
 
-    // The search box otherwise still reads as a search of all of YouTube.
-    // Only the default hint is replaced, not the hint of Shorts or playlist search.
-    SearchBoxHintFingerprint.hookMethod {
-        val search_hint = ResourceUtils.getString("search_hint")
-        after {
-            if (it.result == search_hint) {
-                it.result = ChannelSearchPatch.getSearchHint(it.result as String?)
-            }
-        }
-    }
-
-    ::SearchSubmitFingerprint.hookMethod {
-        before {
-
-            if (ChannelSearchPatch.searchInChannel(it.args[0] as? String))
-                it.result = null
-        }
-    }
 }

@@ -155,18 +155,16 @@ internal object PlayerStatusEnumFingerprint : Fingerprint(
     )
 )
 
-val playerStatusMethod = findMethodDirect {
-    Fingerprint(
-        classFingerprint = PlayerInitFingerprint,
-        accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
-        returnType = "V",
-        parameters = listOf(PlayerStatusEnumFingerprint().declaredClass!!.descriptor),
-        filters = listOf(
-            opcode(Opcode.SGET_OBJECT),
-            methodCall(definingClass = "Lj$/time/Instant;", name = "plus")
-        )
-    )()
-}
+internal object PlayerStatusFingerprint : Fingerprint(
+    classFingerprint = PlayerInitFingerprint,
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "V",
+    parameters = { listOf(PlayerStatusEnumFingerprint().declaredClass!!.descriptor) },
+    filters = listOf(
+        opcode(Opcode.SGET_OBJECT),
+        methodCall(definingClass = "Lj$/time/Instant;", name = "plus")
+    )
+)
 
 internal object PlayerInitFingerprint : Fingerprint(
     name = "<init>",
@@ -213,7 +211,8 @@ internal object VideoLengthFingerprint : Fingerprint(
         methodCall(returnType = "J", location = MatchAfterWithin(10)),
 
         methodCall(returnType = "Z", parameters = listOf()),
-        opcode(Opcode.CMP_LONG, location = MatchAfterWithin(8))
+        // 21.47+ has a branch before the compare that can skip it.
+        opcode(Opcode.CMP_LONG, location = MatchAfterWithin(30))
     )
 )
 
@@ -379,7 +378,7 @@ val setQualityMenuIndexMethod = findMethodDirect {
  * Makes a playback the current one, such as a preloaded Short when it's scrolled to,
  * which is not loaded again with loadVideo().
  */
-internal fun currentPlaybackFingerprint(playerResponseType: String) = Fingerprint(
+internal object CurrentPlaybackFingerprint : Fingerprint(
     classFingerprint = PlayerInitFingerprint,
     accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
     returnType = "V",
@@ -391,28 +390,23 @@ internal fun currentPlaybackFingerprint(playerResponseType: String) = Fingerprin
         ),
         // The player response of the playback.
         methodCall(
-            returnType = playerResponseType,
+            returnType = { channelInformationMethods().first().paramTypes.first().descriptor },
             parameters = listOf()
         ),
         opcode(Opcode.MOVE_RESULT_OBJECT, location = MatchAfterImmediately()),
         opcode(Opcode.IF_EQZ, location = MatchAfterImmediately()),
         methodCall(
             opcode = Opcode.INVOKE_STATIC,
-            parameters = listOf(playerResponseType, "L"),
+            parameters = { listOf(channelInformationMethods().first().paramTypes.first().descriptor, "L") },
             location = MatchAfterImmediately()
         )
     )
 )
 
 internal val currentPlaybackApplyResponseMethod = findMethodDirect {
-    val type = channelInformationMethods().first().paramTypes.first().descriptor
-    currentPlaybackFingerprint(type).instructionMatches.last().instruction.methodRef!!
+    CurrentPlaybackFingerprint.instructionMatches.last().instruction.methodRef!!
 }
 
-internal val currentPlaybackMethod = findMethodDirect {
-    val type = channelInformationMethods().first().paramTypes.first().descriptor
-    currentPlaybackFingerprint(type)()
-}
 
 internal val videoQualityFormatIdsField = findFieldDirect {
     val constructor = VideoQualityChangedFingerprint

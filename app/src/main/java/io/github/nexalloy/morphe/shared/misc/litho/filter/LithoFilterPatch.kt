@@ -57,6 +57,7 @@ fun addLithoFilter(filter: Filter){
 internal fun sharedLithoFilterPatch(
     overrideUpbFeatureFlag: () -> Boolean,
     removeFilteredListItems: Boolean,
+    hasReorderedListSections: () -> Boolean = { false },
     block: PatchExecutor.() -> Unit,
 ): Patch = patch(
     description = "Hooks the method which parses the bytes into a ComponentContext to filter components."
@@ -109,7 +110,7 @@ internal fun sharedLithoFilterPatch(
     // region Remove the items of the lists whose whole element is filtered.
 
     if (removeFilteredListItems) {
-        val decorators = ::commandEventDataDecoratorsMethod.method
+        val decorators = CommandEventDataDecoratorsFingerprint.method
         val dataField = ::listItemDecoratorDataField.field
         val itemField = ::listItemDataField.field
         commandEventDataDecorators = { context ->
@@ -178,6 +179,38 @@ internal fun sharedLithoFilterPatch(
         }
     }
 
+    if (removeFilteredListItems && hasReorderedListSections()) {
+        val listsField = ::reorderedSectionListsField.field
+        val listField = ::reorderedSectionListField.field
+        val remove = ReorderedListSectionRemoveListFingerprint.method
+        val count = ::reorderedListItemCountMethod.method
+        val contains = listField.type.getMethod("contains", Any::class.java)
+        val sectionClass = ReorderedListSectionFingerprint.declaredClass
+        val proxyKey = "lithoReorderedSection"
+        sectionClass.declaredConstructors.forEach { constructor ->
+            constructor.hookMethod {
+                after {
+                    if (XposedHelpers.getAdditionalInstanceField(it.thisObject, proxyKey) != null) return@after
+                    val proxy = it.thisObject.createProxy { reference ->
+                        LithoFilterPatch.ListSectionInterface { item ->
+                            val section = reference.get() ?: return@ListSectionInterface false
+                            val lists = listsField.get(section) as List<*>
+                            val list = lists.asReversed().map { holder -> listField.get(holder) }.firstOrNull { child ->
+                                !sectionClass.isInstance(child) && count.invoke(child) == 1 &&
+                                        contains.invoke(child, item) == true
+                            } ?: return@ListSectionInterface false
+                            if (remove.parameterCount == 2) remove.invoke(section, list, true)
+                            else remove.invoke(section, list)
+                            true
+                        }
+                    }
+                    XposedHelpers.setAdditionalInstanceField(it.thisObject, proxyKey, proxy)
+                    LithoFilterPatch.addListSection(proxy)
+                }
+            }
+        }
+    }
+
     // TODO: Port list observer removal/reload callbacks and scroll-position remapping.
     // endregion
 
@@ -193,7 +226,7 @@ internal fun sharedLithoFilterPatch(
         val positionField = ::stickyHeaderPositionField.field
         val savedPosition = ::stickyHeaderSavedPositionField.field
         val ownerField = ::stickyHeaderOwnerField.field
-        ::stickyHeaderCreateMethod.hookMethod {
+        StickyHeaderCreateFingerprint.hookMethod {
             before {
                 val owner = ownerField.get(it.thisObject)
                 // The same R8 runnable may also handle unrelated tasks.

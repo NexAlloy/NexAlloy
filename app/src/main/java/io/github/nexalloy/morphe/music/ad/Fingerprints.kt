@@ -24,6 +24,31 @@ internal object ShowVideoAdsFingerprint : Fingerprint(
     strings = listOf("maybeRegenerateCpnAndStatsClient called unexpectedly, but no error.")
 )
 
+/**
+ * Lazily builds the in-player ad overlay (ad title, ad progress text, skip ad button).
+ * Matches the findViewById call for skip_ad_button, whose receiver is the overlay root.
+ *
+ * Older app versions build the overlay in a separate method that returns the root view,
+ * newer versions inline it into a method with no parameters. The method signature is not
+ * declared so both match.
+ */
+internal object AdOverlayInflateFingerprint : Fingerprint(
+    filters = listOf(
+        resourceLiteral(ResourceType.LAYOUT, "default_ad_overlay"),
+        methodCall(name = "inflate"),
+        resourceLiteral(ResourceType.ID, "skip_ad_button"),
+        methodCall(
+            opcode = Opcode.INVOKE_VIRTUAL,
+            name = "findViewById",
+            returnType = "Landroid/view/View;"
+        )
+    )
+)
+
+internal val adOverlayViewLookupMethod = findMethodDirect {
+    AdOverlayInflateFingerprint.instructionMatches.last().instruction.methodRef!!
+}
+
 val showVideoAds = findMethodDirect {
     ShowVideoAdsFingerprint.instructionMatches[1].instruction.methodRef!!
 }

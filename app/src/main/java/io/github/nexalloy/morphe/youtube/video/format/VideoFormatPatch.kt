@@ -1,6 +1,6 @@
 package io.github.nexalloy.morphe.youtube.video.format
 
-import app.morphe.extension.youtube.patches.VideoFormat.FormatInterface
+import app.morphe.extension.shared.patches.VideoFormat.FormatInterface
 import io.github.nexalloy.patch
 import java.lang.reflect.Field
 

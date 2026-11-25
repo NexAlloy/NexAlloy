@@ -9,6 +9,7 @@ import io.github.nexalloy.morphe.StrictQuery
 import io.github.nexalloy.morphe.fieldAccess
 import io.github.nexalloy.morphe.findFieldDirect
 import io.github.nexalloy.morphe.methodCall
+import io.github.nexalloy.morphe.string
 
 internal const val COMPONENT_TEXT_CONTENT = "Lcom/facebook/litho/TextContent;"
 internal const val COMPONENT_HOST_CLASS = "Lcom/facebook/litho/ComponentHost;"
@@ -83,4 +84,56 @@ val lithoForceLayoutField = findFieldDirect {
 
 val lithoMountedTextField = findFieldDirect {
     LithoTextMountFingerprint.instructionMatches.last().instruction.fieldRef!!
+}
+
+internal object ComponentTreeSetRootAndSizeSpecFingerprint : Fingerprint(
+    definingClass = COMPONENT_TREE_CLASS,
+    returnType = "V",
+    parameters = listOf("L", "I", "I", "Z", "L", "I", "Ljava/lang/String;", "L", "Z", "Z"),
+    filters = listOf(
+        string("The layout can't be calculated asynchronously if we need the Size back")
+    )
+)
+
+internal object LithoTextDrawableGetTextItemsFingerprint : Fingerprint(
+    superclass = "Landroid/graphics/drawable/Drawable;",
+    interfaces = listOf(COMPONENT_TEXT_CONTENT),
+    name = "getTextItems",
+    returnType = "Ljava/util/List;",
+    parameters = listOf(),
+    filters = listOf(
+        fieldAccess(
+            opcode = Opcode.IGET_OBJECT,
+            definingClass = "this",
+            type = "Ljava/lang/CharSequence;"
+        ),
+        methodCall(
+            smali = "Ljava/util/Collections;->singletonList(Ljava/lang/Object;)Ljava/util/List;",
+            location = MatchAfterWithin(3)
+        )
+    )
+)
+
+internal object LithoTextDrawableDrawFingerprint : Fingerprint(
+    classFingerprint = LithoTextDrawableGetTextItemsFingerprint,
+    name = "draw",
+    returnType = "V",
+    parameters = listOf("Landroid/graphics/Canvas;"),
+    filters = listOf(
+        fieldAccess(
+            opcode = Opcode.IGET_OBJECT,
+            definingClass = "this",
+            type = "Landroid/text/Layout;"
+        )
+    )
+)
+
+internal val lithoComponentTreeField = findFieldDirect {
+    val match = LithoViewOnMeasureFingerprint.match()
+    val measure = match.instructionMatches.last()
+    val receiver = measure.instruction.register(0)
+    match.method.instructions.take(measure.index).last {
+        it.opcode == Opcode.IGET_OBJECT.opCode && it.register(0) == receiver &&
+                it.fieldRef?.type?.descriptor == COMPONENT_TREE_CLASS
+    }.fieldRef!!
 }

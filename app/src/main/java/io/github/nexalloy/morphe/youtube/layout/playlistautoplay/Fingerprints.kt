@@ -34,20 +34,18 @@ internal object NavigationIntentEnumFingerprint : Fingerprint(
     }
 )
 
-val navigationIntentWrapperConstructor = findMethodDirect {
-    Fingerprint(
-        accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.CONSTRUCTOR),
-        parameters = listOf(NavigationIntentEnumFingerprint().declaredClass!!.descriptor, "L", "L")
-    )()
-}
+internal object NavigationIntentWrapperConstructorFingerprint : Fingerprint(
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.CONSTRUCTOR),
+    parameters = { listOf(NavigationIntentEnumFingerprint().declaredClass!!.descriptor, "L", "L") }
+)
 
 val navigationIntentField = findFieldDirect {
     val enumType = NavigationIntentEnumFingerprint().declaredClass!!
-    navigationIntentWrapperConstructor().declaredClass!!.fields.first { it.type == enumType }
+    NavigationIntentWrapperConstructorFingerprint().declaredClass!!.fields.first { it.type == enumType }
 }
 
 val navigationIntentMethods = findMethodListDirect {
-    val wrapperType = navigationIntentWrapperConstructor().declaredClass!!.descriptor
+    val wrapperType = NavigationIntentWrapperConstructorFingerprint().declaredClass!!.descriptor
     Fingerprint(
         accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
         returnType = "V",
@@ -57,16 +55,13 @@ val navigationIntentMethods = findMethodListDirect {
         .also { require(it.isNotEmpty()) }
 }
 
-val navigationPlayerButtonsMethod = findMethodDirect {
-    val wrapperType = navigationIntentWrapperConstructor().declaredClass!!.descriptor
-    Fingerprint(
-        accessFlags = listOf(AccessFlags.PRIVATE, AccessFlags.FINAL),
-        returnType = "V",
-        parameters = listOf(wrapperType, "Ljava/lang/Runnable;"),
-        filters = listOf(
-            methodCall(parameters = listOf(wrapperType), returnType = "Z"),
-            methodCall(smali = "Ljava/lang/Runnable;->run()V", location = MatchAfterWithin(3)),
-            methodCall(parameters = listOf(wrapperType), returnType = "V", location = MatchAfterWithin(3))
-        )
-    )()
-}
+internal object NavigationPlayerButtonsFingerprint : Fingerprint(
+    accessFlags = listOf(AccessFlags.PRIVATE, AccessFlags.FINAL),
+    returnType = "V",
+    parameters = { listOf(NavigationIntentWrapperConstructorFingerprint().declaredClass!!.descriptor, "Ljava/lang/Runnable;") },
+    filters = listOf(
+        methodCall(parameters = { listOf(NavigationIntentWrapperConstructorFingerprint().declaredClass!!.descriptor) }, returnType = "Z"),
+        methodCall(smali = "Ljava/lang/Runnable;->run()V", location = MatchAfterWithin(3)),
+        methodCall(parameters = { listOf(NavigationIntentWrapperConstructorFingerprint().declaredClass!!.descriptor) }, returnType = "V", location = MatchAfterWithin(3))
+    )
+)

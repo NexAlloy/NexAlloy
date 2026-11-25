@@ -1,9 +1,12 @@
 package io.github.nexalloy.morphe.youtube.video.quality
 
 import `j$`.util.Optional
+import app.morphe.extension.youtube.innertube.ClientAbrStateOuterClass.MediaCapabilities
 import app.morphe.extension.youtube.patches.playback.quality.RememberVideoQualityPatch
 import io.github.nexalloy.callMethod
 import io.github.nexalloy.hookMethod
+import io.github.nexalloy.morphe.shared.misc.downloads.FormatStreamProxy
+import io.github.nexalloy.morphe.shared.misc.downloads.formatStreamInterfacePatch
 import io.github.nexalloy.morphe.shared.misc.settings.preference.ListPreference
 import io.github.nexalloy.morphe.shared.misc.settings.preference.SwitchPreference
 import io.github.nexalloy.morphe.youtube.insertLiteralOverride
@@ -13,19 +16,18 @@ import io.github.nexalloy.morphe.youtube.misc.playertype.PlayerTypeHook
 import io.github.nexalloy.morphe.youtube.misc.playservice.VersionCheck
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_17_or_greater
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_43_or_greater
+import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_46_or_greater
 import io.github.nexalloy.morphe.youtube.shared.VideoQualityChangedFingerprint
 import io.github.nexalloy.morphe.youtube.shared.VideoQualityReceiver
 import io.github.nexalloy.morphe.youtube.shared.hookVideoIntent
 import io.github.nexalloy.morphe.youtube.shared.openVideoIntentPatch
 import io.github.nexalloy.morphe.youtube.shared.playbackStartVideoIdMethod
-import io.github.nexalloy.morphe.youtube.video.format.currentFormatItagMethod
 import io.github.nexalloy.morphe.youtube.video.format.hookAdaptiveFormat
 import io.github.nexalloy.morphe.youtube.video.format.videoFormatPatch
 import io.github.nexalloy.morphe.youtube.video.information.VideoInformationPatch
 import io.github.nexalloy.morphe.youtube.video.information.VideoQualityProxy
 import io.github.nexalloy.morphe.youtube.video.information.setQualityMenuIndexMethod
-import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_46_or_greater
-import io.github.nexalloy.hookMethod
+import io.github.nexalloy.morphe.youtube.video.videoid.ForegroundVideoIdFingerprint
 import io.github.nexalloy.patch
 import io.github.nexalloy.scopedHook
 
@@ -33,6 +35,7 @@ val RememberVideoQuality = patch {
     dependsOn(
         VideoInformationPatch,
         videoFormatPatch,
+        formatStreamInterfacePatch,
         PlayerTypeHook,
         openVideoIntentPatch,
         VersionCheck,
@@ -68,7 +71,7 @@ val RememberVideoQuality = patch {
     )
 
     // Inject a call to override initial video quality.
-    ::PlaybackStartParametersInit.hookMethod {
+    PlaybackStartParametersInitFingerprint.hookMethod {
         val initialResolutionField = ::InitialResolutionField.field
         after {
             val oldValue = initialResolutionField.get(it.thisObject)
@@ -81,7 +84,7 @@ val RememberVideoQuality = patch {
     val playerField = ::playbackStartPlayerField.field
     val getDescriptor = ::playerPlaybackStartDescriptorMethod.method
     val getVideoId = ::playbackStartVideoIdMethod.method
-    ::playbackStartInitialResolutionMethod.hookMethod {
+    PlaybackStartInitialResolutionFingerprint.hookMethod {
         after {
             val descriptor = playerField.get(it.thisObject)?.let { player -> getDescriptor.invoke(player) }
             val id = descriptor?.let { value -> getVideoId.invoke(value) as String? }
@@ -96,7 +99,7 @@ val RememberVideoQuality = patch {
     // Use the 'Advanced' video quality setting instead of the 'Video quality preferences'
     // (Auto, Higher picture quality, Data saver), both on the device and with the SABR requests.
     val advancedMenu = ::advancedVideoQualitySettingField.field.get(null)
-    ::getVideoQualitySettingMethod.hookMethod {
+    GetVideoQualitySettingFingerprint.hookMethod {
         before {
             if (RememberVideoQualityPatch.useAdvancedVideoQualitySetting()) {
                 it.result = advancedMenu
@@ -128,7 +131,7 @@ val RememberVideoQuality = patch {
     val (selectedTime, videoId, playbackStartTime, resolution, direction) = ::lastSelectedVideoQualityFields.fieldList
     LastSelectedVideoQualityConstructorFingerprint.hookMethod {
         after {
-            val quality = RememberVideoQualityPatch.getLastSelectedVideoQuality()
+            val quality = RememberVideoQualityPatch.getLastSelectedVideoQuality(null)
             if (quality >= 0 && !it.hasThrowable()) {
                 resolution.setInt(it.thisObject, quality)
                 direction.setInt(it.thisObject, 0)
@@ -143,13 +146,51 @@ val RememberVideoQuality = patch {
     // With some accounts, the quality selected in the quality menu is used only for the video
     // it was selected for, and the player of other videos chooses the quality automatically.
     // The default quality is used as if the user selected it for the current video.
-    ::getVideoQualityConstraintMethod.hookMethod(scopedHook(::lastSelectedVideoQualityGetter.method) {
+    GetVideoQualityConstraintFingerprint.hookMethod(scopedHook(::lastSelectedVideoQualityGetter.method) {
         after {
-            if (innerDepth == 0 && RememberVideoQualityPatch.getLastSelectedVideoQuality() >= 0 && it.result != null) {
-                videoId.set(it.result, outerParam.args[2])
+            val cpn = outerParam.args[2] as String?
+            val quality = RememberVideoQualityPatch.getLastSelectedVideoQuality(cpn)
+            if (innerDepth == 0 && quality >= 0 && it.result != null) {
+                resolution.setInt(it.result, quality)
+                videoId.set(it.result, cpn)
             }
         }
     })
+
+    // Lower a default quality whose formats exceed the device's video decoder capabilities.
+    val range = ::qualityConstraintRangeField.field
+    val (highest, lowest, mode, formats) = ::qualityRangeFields.fieldList
+    val rangeConstructor = VideoQualityRangeConstructorFingerprint.constructor
+    val last = ::qualityConstraintLastField.field
+    val fixed = FixedVideoQualityConstraintFingerprint.method
+    val selection = ::sabrFormatSelectionMethod.method
+    val selectable = selection.parameterTypes.indexOfFirst { it.name.endsWith("\$SelectableFormats") }
+    selection.hookMethod {
+        before {
+            val constraint = it.args[0]
+            val oldRange = range.get(constraint)
+            val capabilities = it.args[selectable + 1]?.let { value ->
+                MediaCapabilities.parseFrom(value.callMethod("toByteArray") as ByteArray)
+            }
+            fun streams(index: Int) = (it.args[index] as? List<*>)?.map { stream -> FormatStreamProxy(stream!!) }
+            val quality = RememberVideoQualityPatch.getDecodableSabrResolution(
+                highest.getInt(oldRange), streams(selectable - 2), streams(selectable - 1), capabilities
+            )
+            if (quality >= 0) {
+                val copy = fixed.invoke(constraint, quality)
+                range.set(copy, rangeConstructor.newInstance(
+                    quality, minOf(lowest.getInt(oldRange), quality), mode.getInt(oldRange), formats.get(oldRange)
+                ))
+                last.set(copy, last.get(constraint))
+                it.args[0] = copy
+            }
+        }
+    }
+
+    val playingCpn = ::playingVideoCpnField.field
+    ForegroundVideoIdFingerprint.hookMethod {
+        after { RememberVideoQualityPatch.setPlayingVideoCpn(playingCpn.get(it.thisObject) as String?) }
+    }
 
     // A quality selected by the user is used again if YouTube reloads the video,
     // until another video is opened in the same player.
@@ -169,7 +210,7 @@ val RememberVideoQuality = patch {
 
     // The quality selected is set instead of its resolution, as with regular videos.
     val setQuality = ::setQualityMenuIndexMethod.method
-    val setResolution = ::setVideoQualityResolutionMethod.method
+    val setResolution = SetVideoQualityResolutionFingerprint.method
     ::videoQualityItemSetResolutionMethods.dexMethodList.forEach { method ->
         method.hookMethod(scopedHook(setResolution) {
             before {
@@ -193,11 +234,10 @@ val RememberVideoQuality = patch {
 
     hookAdaptiveFormat { id, formats -> RememberVideoQualityPatch.setVideoFormats(id, formats) }
     val currentFormat = ::currentVideoFormatField.field
-    val getItag = ::currentFormatItagMethod.method
-    ::currentVideoFormatConstructor.hookMethod {
+    CurrentVideoFormatConstructorFingerprint.hookMethod {
         after {
             currentFormat.get(it.thisObject)?.let { format ->
-                RememberVideoQualityPatch.setCurrentVideoFormat(getItag.invoke(format) as Int)
+                RememberVideoQualityPatch.setCurrentVideoFormat(FormatStreamProxy(format))
             }
         }
     }

@@ -64,14 +64,14 @@ internal object OpenNewVideoIntentParcelableFingerprint : Fingerprint(
 )
 
 @StrictQuery
-internal class BackButtonFinishActivityOnNewVideoIntentFingerprint(appWatchDescriptorType: String) : Fingerprint(
+internal object BackButtonFinishActivityOnNewVideoIntentFingerprint : Fingerprint(
     accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
     returnType = "V",
-    parameters = listOf(appWatchDescriptorType),
+    parameters = { listOf(AppWatchDescriptorToStringFingerprint().declaredClass!!.descriptor) },
     filters = listOf(
         fieldAccess(
             opcode = Opcode.IGET_OBJECT,
-            definingClass = appWatchDescriptorType
+            definingClass = { AppWatchDescriptorToStringFingerprint().declaredClass!!.descriptor }
         ),
         methodCall(
             opcode = Opcode.INVOKE_VIRTUAL,
@@ -133,9 +133,3 @@ internal object AppWatchDescriptorToStringFingerprint : Fingerprint(
     parameters = listOf(),
     strings = listOf("AppWatchDescriptor{watchDescriptor=")
 )
-
-val backButtonFinishActivityOnNewVideoIntentMethod = findMethodDirect {
-    BackButtonFinishActivityOnNewVideoIntentFingerprint(
-        AppWatchDescriptorToStringFingerprint().declaredClass!!.descriptor
-    )()
-}

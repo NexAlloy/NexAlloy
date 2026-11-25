@@ -1,5 +1,7 @@
 package io.github.nexalloy.morphe
 
+import org.luckypray.dexkit.DexKitBridge
+
 import org.luckypray.dexkit.query.matchers.MethodMatcher
 import org.luckypray.dexkit.result.InstructionData
 import org.luckypray.dexkit.result.MethodData
@@ -74,6 +76,7 @@ class ResourceLiteralFilter(
         }
     }
 
+    context(bridge: DexKitBridge)
     override fun matches(
         enclosingMethod: MethodData,
         instruction: InstructionData
@@ -89,7 +92,7 @@ class ResourceLiteralFilter(
         return instruction.literal == literalValue
     }
 
-    context(matcher: MethodMatcher)
+    context(bridge: DexKitBridge, matcher: MethodMatcher)
     override fun addQuery() {
         literalValue?.let { matcher.addUsingNumber(it) }
     }

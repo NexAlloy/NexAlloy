@@ -18,7 +18,7 @@ val navigationBarPatch = patch(
 ) {
     PreferenceScreen.GENERAL.addPreferences(
         PreferenceScreenPreference(
-            key = "morphe_music_navigation_bar_screen",
+            key = "morphe_navigation_bar_screen",
             sorting = PreferenceScreenPreference.Sorting.UNSORTED,
             preferences = setOf(
                 SwitchPreference("morphe_music_hide_navigation_bar_home_button"),
@@ -26,6 +26,9 @@ val navigationBarPatch = patch(
                 SwitchPreference("morphe_music_hide_navigation_bar_explore_button"),
                 SwitchPreference("morphe_music_hide_navigation_bar_library_button"),
                 SwitchPreference("morphe_music_hide_navigation_bar_upgrade_button"),
+                // TODO: Port the navigation button proto factory for the Settings button.
+                // SwitchPreference("morphe_music_show_navigation_bar_settings_button"),
+                // SwitchPreference("morphe_music_show_navigation_bar_settings_button_type", summary = true),
                 SwitchPreference("morphe_music_hide_navigation_bar"),
                 SwitchPreference("morphe_music_hide_navigation_bar_labels"),
                 // SwitchPreference("morphe_music_navigation_bar_glass", summary = true),

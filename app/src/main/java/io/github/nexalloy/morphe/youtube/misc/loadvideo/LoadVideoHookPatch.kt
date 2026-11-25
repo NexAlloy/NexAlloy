@@ -68,7 +68,7 @@ internal val loadVideoHookPatch = patch(
         MainActivityInterface { intent -> onNewIntent(activity, intent) }
     }
 
-    ::backButtonFinishActivityOnNewVideoIntentMethod.hookMethod {
+    BackButtonFinishActivityOnNewVideoIntentFingerprint.hookMethod {
         before { it.result = null }
     }
 }

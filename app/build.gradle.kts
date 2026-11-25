@@ -177,6 +177,7 @@ dependencies {
     implementation(libs.protobuf.javalite)
     implementation(libs.collections4)
     implementation(libs.lang3)
+    implementation(libs.hiddenapibypass)
 }
 
 protobuf {

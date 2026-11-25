@@ -1,6 +1,7 @@
 package io.github.nexalloy.morphe.youtube.layout.startpage
 
 import io.github.nexalloy.morphe.Fingerprint
+import io.github.nexalloy.morphe.InstructionLocation.MatchAfterImmediately
 import io.github.nexalloy.morphe.InstructionLocation.MatchAfterWithin
 import io.github.nexalloy.morphe.Opcode
 import io.github.nexalloy.morphe.StrictQuery
@@ -9,6 +10,7 @@ import io.github.nexalloy.morphe.fieldAccess
 import io.github.nexalloy.morphe.findMethodDirect
 import io.github.nexalloy.morphe.literal
 import io.github.nexalloy.morphe.methodCall
+import io.github.nexalloy.morphe.opcode
 import io.github.nexalloy.morphe.shared.misc.debugging.BootstrapStoreReadFingerprint
 import io.github.nexalloy.morphe.string
 
@@ -27,11 +29,18 @@ internal object BrowseIdFingerprint : Fingerprint(
     filters = listOf(
         string("FEwhat_to_watch"),
         methodCall(
+            opcode = Opcode.INVOKE_STATIC,
             parameters = listOf("Ljava/lang/String;"),
-            location = MatchAfterWithin(3)
+            location = MatchAfterImmediately()
         ),
-        literal(512),
-        fieldAccess(opcode = Opcode.IPUT_OBJECT, type = "Ljava/lang/String;")
+        // Sets the has bit of the browse id, which is 0x400 in 21.47+ and 0x200 before.
+        opcode(Opcode.OR_INT_LIT16),
+        opcode(Opcode.IPUT, location = MatchAfterImmediately()),
+        fieldAccess(
+            opcode = Opcode.IPUT_OBJECT,
+            type = "Ljava/lang/String;",
+            location = MatchAfterImmediately()
+        )
     )
 )
 

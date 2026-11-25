@@ -3,16 +3,15 @@ package io.github.nexalloy.morphe.youtube.interaction.downloads
 import io.github.nexalloy.SkipTest
 import io.github.nexalloy.morphe.AccessFlags
 import io.github.nexalloy.morphe.Fingerprint
-import io.github.nexalloy.morphe.Opcode
-import io.github.nexalloy.morphe.InstructionLocation.MatchAfterWithin
 import io.github.nexalloy.morphe.InstructionLocation.MatchAfterImmediately
-import io.github.nexalloy.morphe.findClassDirect
-import io.github.nexalloy.morphe.resourceLiteral
+import io.github.nexalloy.morphe.InstructionLocation.MatchAfterWithin
+import io.github.nexalloy.morphe.Opcode
 import io.github.nexalloy.morphe.ResourceType
 import io.github.nexalloy.morphe.StrictQuery
 import io.github.nexalloy.morphe.anyInstruction
 import io.github.nexalloy.morphe.checkCast
 import io.github.nexalloy.morphe.fieldAccess
+import io.github.nexalloy.morphe.findClassDirect
 import io.github.nexalloy.morphe.findFieldDirect
 import io.github.nexalloy.morphe.findMethodDirect
 import io.github.nexalloy.morphe.findMethodListDirect
@@ -20,6 +19,7 @@ import io.github.nexalloy.morphe.literal
 import io.github.nexalloy.morphe.methodCall
 import io.github.nexalloy.morphe.opcode
 import io.github.nexalloy.morphe.opcodeEnum
+import io.github.nexalloy.morphe.resourceLiteral
 import io.github.nexalloy.morphe.string
 import java.lang.reflect.Modifier
 import org.luckypray.dexkit.DexKitBridge
@@ -111,27 +111,54 @@ internal object OfflineUpsellResponseFingerprint : Fingerprint(
 )
 
 /**
- * Fetches the player response a video is saved with, and puts it into the cache.
+ * Reads the player response a video is saved with from the cache, or fetches it and puts it into the cache.
+ * 21.47+ can also share a fetch that is in progress, and then caches a compressed copy.
  */
+@StrictQuery
 internal object OfflinePlayerResponseFingerprint : Fingerprint(
     accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
     returnType = "L",
     parameters = listOf("L"),
     filters = listOf(
-        string("Some error occurred when reading from the cache player response"),
+        // Cache read.
+        methodCall(
+            parameters = listOf("Ljava/lang/Object;"),
+            returnType = "Lcom/google/common/util/concurrent/ListenableFuture;"
+        ),
+        // Cache write.
         methodCall(
             parameters = listOf("Ljava/lang/Object;", "Ljava/lang/Object;"),
             returnType = "Lcom/google/common/util/concurrent/ListenableFuture;"
+        ),
+        // Callback of the cache write.
+        methodCall(
+            opcode = Opcode.INVOKE_STATIC,
+            parameters = listOf(
+                "Lcom/google/common/util/concurrent/ListenableFuture;",
+                "Ljava/util/concurrent/Executor;",
+                "L"
+            ),
+            returnType = "V",
+            location = MatchAfterWithin(8)
         )
     )
 )
 
 /**
+ * Fetches the player response. 21.47+ has two calls.
+ * Must be used with the method of [OfflinePlayerResponseFingerprint].
+ */
+internal fun offlinePlayerResponseFetchCall(playerResponseModel: String) = methodCall(
+    parameters = listOf("L"),
+    returnType = playerResponseModel
+)
+
+/**
  * Creates a player response model from the bytes of a player response.
  */
-internal fun playerResponseModelFromBytesFingerprint(playerResponseModel: String) = Fingerprint(
+internal object PlayerResponseModelFromBytesFingerprint : Fingerprint(
     accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
-    returnType = playerResponseModel,
+    returnType = { OfflinePlayerResponseFingerprint().returnType!!.descriptor },
     parameters = listOf("[B", "J"),
     filters = listOf(
         methodCall(
@@ -142,11 +169,13 @@ internal fun playerResponseModelFromBytesFingerprint(playerResponseModel: String
     )
 )
 
-internal fun playerResponseGetterFingerprint(playerResponseModelClass: String, playerResponse: String) = Fingerprint(
-    definingClass = playerResponseModelClass,
+internal object PlayerResponseGetterFingerprint : Fingerprint(
+    definingClass = { PlayerResponseModelFromBytesFingerprint().declaredClass!!.descriptor },
     accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
-    returnType = playerResponse,
-    parameters = listOf()
+    returnType = {
+        PlayerResponseModelFromBytesFingerprint.instructionMatches.last().instruction.classRef!!.descriptor
+    },
+    parameters = { emptyList() }
 )
 
 internal val saveOfflineVideoMethod = findMethodDirect {
@@ -157,25 +186,15 @@ internal val offlineUpsellCommandField = findFieldDirect {
     OfflineUpsellResponseFingerprint.instructionMatches[2].instruction.fieldRef!!
 }
 
-internal val playerResponseModelFromBytesMethod = findMethodDirect {
-    playerResponseModelFromBytesFingerprint(OfflinePlayerResponseFingerprint().returnType!!.descriptor)()
-}
-
-internal val playerResponseGetterMethod = findMethodDirect {
-    val factory = playerResponseModelFromBytesMethod()
-    val responseType = playerResponseModelFromBytesFingerprint(factory.returnType!!.descriptor)
-        .instructionMatches.last().instruction.classRef!!.descriptor
-    playerResponseGetterFingerprint(factory.declaredClass!!.descriptor, responseType)()
-}
-
-internal val offlinePlayerResponseFactoryMethod = findMethodDirect {
+internal val offlinePlayerResponseFactoryMethods = findMethodListDirect {
     val outer = OfflinePlayerResponseFingerprint.match()
     val modelType = outer.method.returnType!!.descriptor
     // Transform the freshly created model before the cache put, so both cache and caller receive it.
     outer.method.instructions.take(outer.instructionMatches.last().index).filter {
         (it.opcode == Opcode.INVOKE_VIRTUAL.opCode || it.opcode == Opcode.INVOKE_VIRTUAL_RANGE.opCode)
                 && it.methodRef?.returnType?.descriptor == modelType
-    }.map { it.methodRef!! }.distinctBy { it.descriptor }.single()
+                && it.methodRef?.paramTypes?.size == 1
+    }.map { it.methodRef!! }.distinctBy { it.descriptor }.also { check(it.isNotEmpty()) }
 }
 
 @SkipTest
@@ -382,15 +401,13 @@ internal object SettingCategoriesFingerprint : Fingerprint(
     )
 )
 
-val offlineSettingCategoryFromProtoMethod = findMethodDirect {
-    Fingerprint(
-        accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
-        returnType = OfflineSettingCategoryToStringFingerprint().declaredClass!!.descriptor,
-        parameters = listOf("L")
-    )()
-}
+internal object OfflineSettingCategoryFromProtoFingerprint : Fingerprint(
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
+    returnType = { OfflineSettingCategoryToStringFingerprint().declaredClass!!.descriptor },
+    parameters = listOf("L")
+)
 val offlineSettingCategoryDefaultInstance = findFieldDirect {
-    defaultInstance(offlineSettingCategoryFromProtoMethod().paramTypes[0])
+    defaultInstance(OfflineSettingCategoryFromProtoFingerprint().paramTypes[0])
 }
 val copyOfflineFormatListMethod = findMethodDirect {
     OfflineSettingsConstructorFingerprint.instructionMatches[0].instruction.methodRef!!

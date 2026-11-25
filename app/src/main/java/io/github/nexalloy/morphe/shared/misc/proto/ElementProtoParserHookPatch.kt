@@ -1,7 +1,8 @@
 package io.github.nexalloy.morphe.shared.misc.proto
 
-import io.github.nexalloy.patch
+import app.morphe.extension.shared.patches.ElementProtoParserPatch
 import io.github.nexalloy.Patch
+import io.github.nexalloy.patch
 
 
 /**
@@ -15,6 +16,7 @@ import io.github.nexalloy.Patch
 internal fun createElementProtoParserHookPatch(
     readsResourcesWithParser: () -> Boolean = { false },
     vararg dependencies: Patch,
+    reusesHookedElements: Boolean = false,
 ) = patch(
     description = "Hook to modify the proto message class, which can only be accessed through reflection.",
 ) {
@@ -22,18 +24,33 @@ internal fun createElementProtoParserHookPatch(
     val resourceDepth = ThreadLocal.withInitial { 0 }
     if (readsResourcesWithParser()) {
         // Inline resources are not elements, so their parser calls have no element hooks.
-        ::resourceBytesMethod.hookMethod {
+        ResourceBytesFingerprint.hookMethod {
             before { resourceDepth.set(resourceDepth.get()!! + 1) }
             after { resourceDepth.set(resourceDepth.get()!! - 1) }
         }
     }
 
+    if (reusesHookedElements) {
+        ElementConverterFingerprint.hookMethod {
+            before { ElementProtoParserPatch.onRenderNextCheck() }
+        }
+    }
     NewElementProtoParserFingerprint.hookMethod {
         after {
             if (it.hasThrowable() || resourceDepth.get()!! > 0) return@after
-            var result = it.result as ByteArray?
+            val original = it.result as ByteArray?
+            if (reusesHookedElements && original != null) {
+                ElementProtoParserPatch.getHookedElement(original)?.let { cached ->
+                    it.result = cached
+                    return@after
+                }
+            }
+            var result = original
             hooks.forEach {
                 result = it(result)
+            }
+            if (reusesHookedElements && original != null) {
+                ElementProtoParserPatch.setHookedElement(original, result)
             }
             it.result = result
         }

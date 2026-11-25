@@ -4,6 +4,7 @@ import android.view.View
 import app.morphe.extension.shared.ResourceUtils.getIdIdentifier
 import app.morphe.extension.youtube.patches.components.ShortsFilter
 import de.robv.android.xposed.XC_MethodReplacement
+import io.github.nexalloy.hookMethod
 import io.github.nexalloy.morphe.resourceMappings
 import io.github.nexalloy.morphe.shared.misc.litho.filter.addLithoFilter
 import io.github.nexalloy.morphe.shared.misc.settings.preference.PreferenceCategory
@@ -15,7 +16,6 @@ import io.github.nexalloy.morphe.youtube.misc.litho.filter.LithoFilter
 import io.github.nexalloy.morphe.youtube.misc.litho.observer.LayoutReloadObserver
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_20_51_or_greater
 import io.github.nexalloy.morphe.youtube.misc.settings.PreferenceScreen
-import io.github.nexalloy.hookMethod
 import io.github.nexalloy.morphe.youtube.shared.filterPushNotification
 import io.github.nexalloy.morphe.youtube.shared.pushNotificationHookPatch
 import io.github.nexalloy.patch
@@ -77,7 +77,7 @@ val HideShortsComponents = patch(
         SwitchPreference("morphe_hide_shorts_hashtag_button"),
         SwitchPreference("morphe_hide_shorts_live_preview"),
         SwitchPreference("morphe_hide_shorts_new_posts_button"),
-        SwitchPreference("morphe_hide_shorts_shop_button"),
+        SwitchPreference("morphe_hide_shorts_shop_button", titleKey = "morphe_hide_shop_button_title"),
         SwitchPreference("morphe_hide_shorts_tagged_products"),
         SwitchPreference("morphe_hide_shorts_search_suggestions"),
         SwitchPreference("morphe_hide_shorts_super_thanks_button"),

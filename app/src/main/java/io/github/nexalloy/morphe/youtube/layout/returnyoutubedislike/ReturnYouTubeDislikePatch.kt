@@ -3,7 +3,7 @@ package io.github.nexalloy.morphe.youtube.layout.returnyoutubedislike
 import app.morphe.extension.shared.returnyoutubedislike.ui.ReturnYouTubeDislikeAboutPreference
 import app.morphe.extension.shared.returnyoutubedislike.ui.ReturnYouTubeDislikeDebugStatsPreferenceCategory
 import app.morphe.extension.youtube.patches.ReturnYouTubeDislikePatch
-import io.github.nexalloy.morphe.shared.layout.returnyoutubedislike.likeEndpointParserMethod
+import io.github.nexalloy.morphe.shared.layout.returnyoutubedislike.LikeEndpointParserFingerprint
 import io.github.nexalloy.morphe.shared.layout.returnyoutubedislike.endpointServiceNameField
 import io.github.nexalloy.morphe.shared.layout.returnyoutubedislike.hookLikeDislikeButtons
 import io.github.nexalloy.morphe.shared.layout.returnyoutubedislike.votePayloadPresenceField
@@ -87,7 +87,7 @@ val returnYouTubeDislikePatch = patch(
     val videoIdField = ::voteVideoIdField.field
     val targetField = ::votePayloadTargetField.field
     val presenceField = ::votePayloadPresenceField.field
-    ::likeEndpointParserMethod.hookMethod(scopedHook(::votePayloadUnpackMethod.method) {
+    LikeEndpointParserFingerprint.hookMethod(scopedHook(::votePayloadUnpackMethod.method) {
         after {
             val payload = it.result ?: return@after
             if (targetField.declaringClass.isInstance(payload) && presenceField.getInt(payload) and 2 != 0) {
@@ -95,7 +95,7 @@ val returnYouTubeDislikePatch = patch(
             }
         }
     })
-    ::likeEndpointParserMethod.hookMethod {
+    LikeEndpointParserFingerprint.hookMethod {
         after {
             if (it.hasThrowable()) return@after
             val target = it.getObjectExtra("rydVoteTarget") ?: return@after

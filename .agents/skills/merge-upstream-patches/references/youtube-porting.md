@@ -42,7 +42,7 @@ Look for the corresponding registration entry point before adding new behavior.
 
 ## 4. Preserve fingerprint semantics, then separate the members to hook
 
-Recent upstream APIs such as `Fingerprint`, `AccessFlags`, `Opcode`, `ResourceType`, `methodCall`, `fieldAccess`, and `resourceLiteral` already have local compatibility implementations.
+Upstream APIs such as `Fingerprint`, `AccessFlags`, `Opcode`, `ResourceType`, `methodCall`, `fieldAccess`, and `resourceLiteral` have local compatibility implementations. Check new overloads and dynamic parameters using the workflow's [patcher API sync rules](../SKILL.md#sync-patcher-fingerprint-apis) before working around a missing API in an individual fingerprint.
 Prefer preserving method signatures, string comparison modes, filter order, `MatchAfterImmediately` / `MatchAfterWithin`, and version conditions while replacing the corresponding imports. Adapt `custom` callback forms to the local API.
 
 Local DexKit candidate queries and full instruction matching are separate stages. `Fingerprint()` / `run()` checks query-result uniqueness; `@StrictQuery` applies instruction matching only when there are multiple candidates. Use `match()` / `instructionMatches` to validate instruction order, distance, and the actual injection point even when the query returns one method.
@@ -53,8 +53,7 @@ Generic types such as `"L"` may contribute no concrete constraint to a DexKit qu
 
 `AnyInstruction.addQuery()` currently adds no DexKit constraint. For an OR of exact strings used to identify a method or parent class, translate each alternative into a separate `custom` / `addAnyOf` branch containing `addEqString`. Preserve the full strings and comparison mode; a shared substring can also occur in unrelated command handlers. Retain instruction filters when their position matters.
 
-When upstream obtains references through `instructionMatches`, use the matched instructions' `methodRef`, `fieldRef`, and `classRef` locally, then expose independent finders through `findMethodDirect`, `findFieldDirect`, and `findClassDirect`.
-Access runtime members in the patch through `::finder.method`, `.field`, `.clazz`, and related properties.
+When the target is the fingerprint's matched method itself, use `SomeFingerprint.hookMethod`, `.method`, or `.constructor` directly. When upstream obtains a different target through `instructionMatches`, use the matched instructions' `methodRef`, `fieldRef`, and `classRef` locally, then expose independent finders through `findMethodDirect`, `findFieldDirect`, and `findClassDirect` as needed. Access those members through `::finder.method`, `.field`, `.clazz`, and related properties.
 
 For calls to bundled libraries whose names or implementations change between APKs, locate the call relative to a matched instruction and constrain its invoke opcode, parameter types, and return type. Check both ordinary and range invoke forms when applicable, and require a unique result within that region. Verify the value reaches the same upstream injection point before choosing the runtime hook; a familiar library method name alone is insufficient.
 

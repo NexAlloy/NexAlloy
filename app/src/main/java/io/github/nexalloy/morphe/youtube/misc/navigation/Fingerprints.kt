@@ -200,18 +200,14 @@ val browserIdMethod = findMethodDirect {
     }
 }
 
-val BrowseFragmentTarget = findMethodDirect {
-    val definingClass = BrowseFragmentOnCreateViewFingerprint().declaredClass!!.descriptor
-
-    Fingerprint(
-        definingClass = definingClass,
-        returnType = "V",
-        parameters = listOf(endpointField().type.descriptor),
-        filters = listOf(
-            fieldAccess(opcode = Opcode.IPUT_OBJECT, reference = endpointField())
-        )
-    )()
-}
+internal object BrowseFragmentTargetFingerprint : Fingerprint(
+    definingClass = { BrowseFragmentOnCreateViewFingerprint().declaredClass!!.descriptor },
+    returnType = { "V" },
+    parameters = { listOf(endpointField().type.descriptor) },
+    filters = listOf(
+        fieldAccess(opcode = Opcode.IPUT_OBJECT, reference = { endpointField() })
+    )
+)
 
 /*
  * Copyright 2026 Morphe.

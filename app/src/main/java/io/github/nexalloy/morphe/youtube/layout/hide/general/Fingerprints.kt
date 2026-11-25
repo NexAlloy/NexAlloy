@@ -1,5 +1,6 @@
 package io.github.nexalloy.morphe.youtube.layout.hide.general
 
+import io.github.nexalloy.RequireAppVersion
 import io.github.nexalloy.SkipTest
 import io.github.nexalloy.morphe.AccessFlags
 import io.github.nexalloy.morphe.Fingerprint
@@ -20,6 +21,7 @@ import io.github.nexalloy.morphe.resourceLiteral
 import io.github.nexalloy.morphe.string
 import io.github.nexalloy.morphe.youtube.video.speed.custom.TapAndHoldSpeedFingerprint
 import java.lang.reflect.Modifier
+import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.result.ClassData
 
 internal object ParseElementFromBufferFingerprint : Fingerprint(
@@ -158,6 +160,92 @@ val contextualMenuItemMessageField = findFieldDirect {
 }
 
 /**
+ * 21.23+
+ *
+ * Sets the visibility of the button next to the timestamp, which shows the chapter title,
+ * or 'In this video' for videos without chapters.
+ */
+@RequireAppVersion(minVersion = "21.23.000")
+internal object TimeBarEntryPointVisibilityFingerprint : Fingerprint(
+    returnType = "V",
+    parameters = listOf("Z"),
+    filters = listOf(
+        methodCall(smali = "Landroid/text/TextUtils;->isEmpty(Ljava/lang/CharSequence;)Z"),
+        methodCall( // If the chapter title is shown.
+            definingClass = "this",
+            returnType = "Z",
+            parameters = listOf("Z")
+        ),
+        opcode(Opcode.MOVE_RESULT, location = MatchAfterImmediately()),
+        fieldAccess( // The button.
+            opcode = Opcode.IGET_OBJECT,
+            definingClass = "this",
+            location = MatchAfterImmediately()
+        ),
+        methodCall( // Sets the visibility of the button.
+            opcode = Opcode.INVOKE_VIRTUAL,
+            returnType = "V",
+            parameters = listOf("Z", "Z"),
+            location = MatchAfterWithin(6)
+        ),
+        opcode(Opcode.RETURN_VOID, location = MatchAfterImmediately())
+    )
+)
+
+/**
+ * 21.22 and lower. Legacy version of [TimeBarEntryPointVisibilityFingerprint].
+ *
+ * The button next to the timestamp is always shown, and the chapter title and 'In this video'
+ * inside it are shown separately. Sets the visibility of the chapter title.
+ */
+@RequireAppVersion(maxVersion = "21.23.000")
+internal object TimeBarChapterTitleVisibilityLegacyFingerprint : Fingerprint(
+    returnType = "V",
+    parameters = listOf("Z"),
+    filters = listOf(
+        methodCall(smali = "Landroid/text/TextUtils;->isEmpty(Ljava/lang/CharSequence;)Z"),
+        methodCall(smali = "Landroid/widget/TextView;->setContentDescription(Ljava/lang/CharSequence;)V"),
+        fieldAccess( // The chapter title.
+            opcode = Opcode.IGET_OBJECT,
+            definingClass = "this",
+            location = MatchAfterWithin(3)
+        ),
+        methodCall( // Sets the visibility of the chapter title.
+            opcode = Opcode.INVOKE_VIRTUAL,
+            returnType = "V",
+            parameters = listOf("Z", "Z"),
+            location = MatchAfterImmediately()
+        ),
+        opcode(Opcode.RETURN_VOID, location = MatchAfterImmediately())
+    )
+)
+
+/**
+ * 21.22 and lower. Legacy version of [TimeBarEntryPointVisibilityFingerprint].
+ *
+ * Sets the text and the visibility of 'In this video'.
+ *
+ * @param timeBarType Class of [TimeBarChapterTitleVisibilityLegacyFingerprint].
+ */
+internal fun getTimeBarTimelineTitleVisibilityLegacyFingerprint(timeBarType: String) = Fingerprint(
+    name = "accept",
+    returnType = "V",
+    parameters = listOf("Ljava/lang/Object;"),
+    filters = listOf(
+        methodCall(smali = "Landroid/widget/TextView;->setContentDescription(Ljava/lang/CharSequence;)V"),
+        fieldAccess(
+            opcode = Opcode.IGET_BOOLEAN,
+            definingClass = timeBarType
+        ),
+        methodCall( // Sets the visibility of 'In this video'.
+            opcode = Opcode.INVOKE_VIRTUAL,
+            returnType = "V",
+            parameters = listOf("Z", "Z")
+        )
+    )
+)
+
+/**
  * A row of an app bar menu.
  */
 internal object ListMenuItemViewOnMeasureFingerprint : Fingerprint(
@@ -186,16 +274,14 @@ val tapAndHoldAlreadySpeedingUpField = findFieldDirect {
     TapAndHoldSpeedFingerprint.instructionMatches[4].instruction.fieldRef!!
 }
 
-val tapAndHoldEndMethod = findMethodDirect {
-    val speedControllerType = TapAndHoldSpeedFingerprint.instructionMatches[6]
-        .instruction.fieldRef!!.type!!.descriptor
-    Fingerprint(
-        definingClass = speedControllerType,
-        accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
-        returnType = "V",
-        parameters = listOf()
-    )()
-}
+internal object TapAndHoldEndFingerprint : Fingerprint(
+    definingClass = {
+        TapAndHoldSpeedFingerprint.instructionMatches[6].instruction.fieldRef!!.type!!.descriptor
+    },
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "V",
+    parameters = listOf()
+)
 
 internal object ShowControlsOnRelatedPanelDragFingerprint : Fingerprint(
     classFingerprint = object : Fingerprint(
@@ -287,3 +373,29 @@ val actionBarMenuAddMethods = findMethodListDirect {
         !Modifier.isAbstract(it.modifiers) && implementsMenu(it.declaredClass!!)
     }.also { check(it.isNotEmpty()) }
 }
+
+@get:RequireAppVersion(minVersion = "21.23.000")
+internal val timeBarIsChapterMethod = findMethodDirect {
+    TimeBarEntryPointVisibilityFingerprint.instructionMatches[1].instruction.methodRef!!
+}
+@get:RequireAppVersion(minVersion = "21.23.000")
+internal val timeBarSetVisibleMethod = findMethodDirect {
+    TimeBarEntryPointVisibilityFingerprint.instructionMatches[4].instruction.methodRef!!
+}
+@get:RequireAppVersion(maxVersion = "21.23.000")
+internal val timeBarChapterSetVisibleMethod = findMethodDirect {
+    TimeBarChapterTitleVisibilityLegacyFingerprint.instructionMatches[3].instruction.methodRef!!
+}
+@get:RequireAppVersion(maxVersion = "21.23.000")
+internal val timeBarTimelineSetVisibleMethod = findMethodDirect {
+    timeBarTimelineVisibilityMatch().instructionMatches.last().instruction.methodRef!!
+}
+@get:RequireAppVersion(maxVersion = "21.23.000")
+internal val timeBarTimelineVisibilityMethod = findMethodDirect {
+    timeBarTimelineVisibilityMatch().method
+}
+
+context(_: DexKitBridge)
+private fun timeBarTimelineVisibilityMatch() =
+    getTimeBarTimelineTitleVisibilityLegacyFingerprint(TimeBarChapterTitleVisibilityLegacyFingerprint().declaredClass!!.descriptor)
+        .matchAll().single()

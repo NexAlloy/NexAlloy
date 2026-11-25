@@ -8,6 +8,7 @@ import android.view.MotionEvent
 import android.view.View
 import app.morphe.extension.shared.settings.preference.ColorPickerWithOpacitySliderPreference
 import app.morphe.extension.shared.settings.preference.SeekBarPreference
+import app.morphe.extension.youtube.settings.preference.PressToSwipeSwitchPreference
 import app.morphe.extension.youtube.settings.preference.SwipeVolumeStepsPreference
 import app.morphe.extension.youtube.settings.preference.SwipeZonePreference
 import app.morphe.extension.youtube.swipecontrols.SwipeControlsHostActivity
@@ -118,8 +119,13 @@ val SwipeControls = patch(
         ),
         ListPreference("morphe_swipe_speed_step"),
         SwitchPreference("morphe_swipe_ignore_when_locked", summary = true),
-        SwitchPreference("morphe_swipe_press_to_engage", summary = true),
-        SwitchPreference("morphe_swipe_haptic_feedback"),
+        SwitchPreference(
+            key = "morphe_swipe_press_to_engage",
+            summary = true,
+            // Asks which one to keep when the hold gesture is on, which starts with a long press too.
+            tag = PressToSwipeSwitchPreference::class.java
+        ),
+        SwitchPreference("morphe_swipe_haptic_feedback", summary = true),
         SwitchPreference("morphe_swipe_save_and_restore_brightness", summary = true),
         SwitchPreference("morphe_swipe_lowest_value_enable_auto_brightness", summary = true),
         ListPreference("morphe_swipe_overlay_style"),
@@ -185,6 +191,9 @@ private fun PatchExecutor.hookSwipeControlsActivity(activityClass: Class<*>) {
     }
     activityClass.getDeclaredMethod("onStart").hookMethod {
         after { host(it.thisObject).onStart() }
+    }
+    activityClass.getDeclaredMethod("onStop").hookMethod {
+        after { host(it.thisObject).onStop() }
     }
     activityClass.getDeclaredMethod("onDestroy").hookMethod {
         after { host(it.thisObject).onDestroy() }

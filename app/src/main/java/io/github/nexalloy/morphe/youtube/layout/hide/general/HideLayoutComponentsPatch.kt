@@ -54,6 +54,7 @@ import io.github.nexalloy.morphe.youtube.misc.navigation.browseIdHookPatch
 import io.github.nexalloy.morphe.youtube.misc.playservice.VersionCheck
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_20_31_or_greater
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_11_or_greater
+import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_23_or_greater
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_25_or_greater
 import io.github.nexalloy.morphe.youtube.misc.proto.elementProtoParserHookPatch
 import io.github.nexalloy.morphe.youtube.misc.settings.PreferenceScreen
@@ -160,18 +161,18 @@ val HideLayoutComponents = patch(
         SwitchPreference("morphe_hide_ask_gemini_button", summary = true),
         SwitchPreference("morphe_hide_channel_bar"),
         SwitchPreference("morphe_hide_channel_watermark"),
-        SwitchPreference("morphe_hide_chapters_timeline_button"),
+        SwitchPreference("morphe_hide_chapters_button"),
         SwitchPreference("morphe_hide_crowdfunding_box"),
         SwitchPreference("morphe_hide_emergency_box"),
+        SwitchPreference("morphe_hide_in_this_video_button"),
         SwitchPreference("morphe_hide_info_panels", summary = true),
-        SwitchPreference("morphe_hide_join_membership_button"),
+        SwitchPreference("morphe_hide_join_membership_button", titleKey = "morphe_hide_join_button_title"),
         SwitchPreference("morphe_hide_live_chat_replay_button", summary = true),
         SwitchPreference("morphe_hide_medical_panels"),
         SwitchPreference("morphe_hide_player_gesture_hints", summary = true),
         SwitchPreference("morphe_hide_subscribers_community_guidelines"),
         SwitchPreference("morphe_hide_sync_button"),
         SwitchPreference("morphe_hide_tap_and_hold_gradient", summary = true),
-        SwitchPreference("morphe_hide_timed_reactions", summary = true),
         SwitchPreference("morphe_hide_video_title", summary = true),
         SwitchPreference("morphe_sanitize_video_subtitle", summary = true)
     )
@@ -215,6 +216,7 @@ val HideLayoutComponents = patch(
             sorting = Sorting.UNSORTED,
             preferences = setOf(
                 SwitchPreference("morphe_hide_keyword_content_comments"),
+                SwitchPreference("morphe_hide_keyword_content_posts"),
                 SwitchPreference("morphe_hide_keyword_content_home"),
                 SwitchPreference("morphe_hide_keyword_content_search"),
                 SwitchPreference("morphe_hide_keyword_content_subscriptions"),
@@ -289,7 +291,7 @@ val HideLayoutComponents = patch(
                     SwitchPreference("morphe_hide_post_dislike_button", summary = true),
                     SwitchPreference("morphe_hide_post_comment_button"),
                     SwitchPreference("morphe_hide_post_comments_preview", summary = true),
-                    SwitchPreference("morphe_hide_post_share_button", summary = true)
+                    SwitchPreference("morphe_hide_post_share_button", titleKey = "morphe_hide_share_button_title", summary = true)
                 )
             ),
         SwitchPreference("morphe_hide_compact_banner", summary = true),
@@ -315,7 +317,11 @@ val HideLayoutComponents = patch(
         SwitchPreference("morphe_hide_horizontal_shelves", summary = true),
         SwitchPreference("morphe_hide_image_shelf", summary = true),
         SwitchPreference("morphe_hide_handle", summary = true),
-        SwitchPreference("morphe_hide_help_feedback_menu", summary = true),
+        SwitchPreference(
+            "morphe_hide_help_feedback_menu",
+            titleKey = "morphe_hide_player_flyout_help_title",
+            summary = true
+        ),
         SwitchPreference("morphe_hide_invite_to_message_card", summary = true),
         SwitchPreference("morphe_hide_latest_videos_button", summary = true),
         SwitchPreference("morphe_hide_live_streams", summary = true),
@@ -463,7 +469,7 @@ val HideLayoutComponents = patch(
         }
     })
 
-    ::tapAndHoldEndMethod.hookMethod {
+    TapAndHoldEndFingerprint.hookMethod {
         before { LayoutComponentsFilter.onTapAndHoldEnd() }
     }
 
@@ -672,6 +678,24 @@ val HideLayoutComponents = patch(
                 )
             }
         }
+    }
+
+    if (is_21_23_or_greater) {
+        val chapter = ThreadLocal<Boolean>()
+        TimeBarEntryPointVisibilityFingerprint.hookMethod(scopedHook(::timeBarIsChapterMethod.method) {
+            after { chapter.set(it.result as Boolean) }
+        })
+        TimeBarEntryPointVisibilityFingerprint.hookMethod(scopedHook(::timeBarSetVisibleMethod.method) {
+            before { it.args[0] = LayoutComponentsFilter.showTimeBarEntryPoint(it.args[0] as Boolean, chapter.get() == true) }
+        })
+        TimeBarEntryPointVisibilityFingerprint.hookMethod { after { chapter.remove() } }
+    } else {
+        TimeBarChapterTitleVisibilityLegacyFingerprint.hookMethod(scopedHook(::timeBarChapterSetVisibleMethod.method) {
+            before { it.args[0] = LayoutComponentsFilter.showTimeBarChapterTitle(it.args[0] as Boolean) }
+        })
+        ::timeBarTimelineVisibilityMethod.hookMethod(scopedHook(::timeBarTimelineSetVisibleMethod.method) {
+            before { it.args[0] = LayoutComponentsFilter.showTimeBarInThisVideo(it.args[0] as Boolean) }
+        })
     }
 
     // region hide live chat scroll to bottom button

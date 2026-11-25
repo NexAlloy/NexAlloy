@@ -3,6 +3,7 @@ package io.github.nexalloy.morphe.shared.misc.litho.relayout
 import android.graphics.drawable.Drawable
 import android.view.View
 import app.morphe.extension.shared.patches.LithoRelayoutPatch
+import app.morphe.extension.shared.patches.LithoRelayoutPatch.ComponentTreeInterface
 import app.morphe.extension.shared.patches.LithoRelayoutPatch.LithoViewInterface
 import io.github.nexalloy.createProxy
 import io.github.nexalloy.patch
@@ -18,12 +19,25 @@ val lithoRelayoutPatch = patch(
     val lithoViewClass = LithoViewOnMeasureFingerprint.declaredClass
     val forceLayoutField = ::lithoForceLayoutField.field
     val unmountAllItems = LithoViewUnmountAllItemsFingerprint.method
+    val componentTree = ::lithoComponentTreeField.field
+    val layoutAsync = ComponentTreeSetRootAndSizeSpecFingerprint.method
     val adapters = WeakHashMap<View, LithoViewInterface>()
     LithoRelayoutPatch.setLithoViewAdapter { view ->
         if (!lithoViewClass.isInstance(view)) null
         else adapters.getOrPut(view) {
             view.createProxy { reference ->
                 object : LithoViewInterface {
+                    override fun patch_getComponentTree(): ComponentTreeInterface? {
+                        val tree = reference.get()?.let(componentTree::get) ?: return null
+                        return tree.createProxy { treeReference ->
+                            ComponentTreeInterface {
+                                treeReference.get()?.let {
+                                    layoutAsync.invoke(it, null, -1, -1, true, null, 3, null, null, false, true)
+                                }
+                            }
+                        }
+                    }
+
                     override fun patch_forceRelayout() {
                         val host = reference.get() ?: return
                         forceLayoutField.setBoolean(host, true)

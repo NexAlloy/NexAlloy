@@ -1,12 +1,12 @@
 package io.github.nexalloy.morphe.youtube.interaction.downloads
 
 import android.net.Uri
+import app.morphe.extension.shared.settings.preference.ExportFolderPreference
 import app.morphe.extension.shared.settings.preference.ExternalDownloaderPreference
 import app.morphe.extension.shared.spoof.SpoofVideoStreamsPatch
 import app.morphe.extension.shared.spoof.requests.StreamingDataRequest
 import app.morphe.extension.youtube.patches.DownloadsPatch
 import app.morphe.extension.youtube.patches.InAppDownloadsPatch
-import app.morphe.extension.shared.settings.preference.ExportFolderPreference
 import app.morphe.extension.youtube.videoplayer.ExportDownloadButton
 import app.morphe.extension.youtube.videoplayer.ExternalDownloadButton
 import app.morphe.extension.youtube.videoplayer.ShortsDownloadButton
@@ -120,8 +120,8 @@ val Downloads = patch(
     hookElement(InAppDownloadsPatch::addPlaylistDownloadButton)
 
     // Show Background & downloads settings before any video has been saved.
-    val categoryClass = ::offlineSettingCategoryFromProtoMethod.method.returnType
-    val categoryFromProto = ::offlineSettingCategoryFromProtoMethod.method
+    val categoryClass = OfflineSettingCategoryFromProtoFingerprint.method.returnType
+    val categoryFromProto = OfflineSettingCategoryFromProtoFingerprint.method
     val categoryDefault = ::offlineSettingCategoryDefaultInstance.field.get(null)
     SettingCategoriesFingerprint.hookMethod {
         after {
@@ -213,26 +213,28 @@ val Downloads = patch(
     }
 
     // Save the video with streams of another client, if the server declines to save the video.
-    val getter = ::playerResponseGetterMethod.method
-    val fromBytes = ::playerResponseModelFromBytesMethod.method
-    OfflinePlayerResponseFingerprint.hookMethod(scopedHook(::offlinePlayerResponseFactoryMethod.method) {
-        after {
-            if (it.hasThrowable()) return@after
-            val model = it.result ?: return@after
-            val bytes = InAppDownloadsPatch.replaceDeclinedOfflinePlayerResponse(getter.invoke(model))
-                ?: return@after
-            // The playback stream override would replace the streams that can be saved.
-            SpoofVideoStreamsPatch.setKeepStreamsOnThread(true)
-            val replacement = try {
-                // The response time, used for the expiration of the stream urls.
-                fromBytes.invoke(null, bytes, System.currentTimeMillis())
-            } finally {
-                SpoofVideoStreamsPatch.setKeepStreamsOnThread(false)
+    val getter = PlayerResponseGetterFingerprint.method
+    val fromBytes = PlayerResponseModelFromBytesFingerprint.method
+    ::offlinePlayerResponseFactoryMethods.dexMethodList.forEach { factory ->
+        OfflinePlayerResponseFingerprint.hookMethod(scopedHook(factory.toMethod()) {
+            after {
+                if (it.hasThrowable()) return@after
+                val model = it.result ?: return@after
+                val bytes = InAppDownloadsPatch.replaceDeclinedOfflinePlayerResponse(getter.invoke(model), true)
+                    ?: return@after
+                // The playback stream override would replace the streams that can be saved.
+                SpoofVideoStreamsPatch.setKeepStreamsOnThread(true)
+                val replacement = try {
+                    // The response time, used for the expiration of the stream urls.
+                    fromBytes.invoke(null, bytes, System.currentTimeMillis())
+                } finally {
+                    SpoofVideoStreamsPatch.setKeepStreamsOnThread(false)
+                }
+                InAppDownloadsPatch.onOfflinePlayerResponseReplaced(replacement)
+                if (replacement != null) it.result = replacement
             }
-            InAppDownloadsPatch.onOfflinePlayerResponseReplaced(replacement)
-            if (replacement != null) it.result = replacement
-        }
-    })
+        })
+    }
 
     // endregion
 }

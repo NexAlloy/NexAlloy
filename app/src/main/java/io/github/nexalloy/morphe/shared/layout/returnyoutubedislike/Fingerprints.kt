@@ -55,9 +55,8 @@ val voteVideoIdField = findFieldDirect {
     ).instructionMatches.last().instruction.fieldRef!!
 }
 
-context(dexkit: DexKitBridge)
-private fun likeEndpointParserFingerprint() = Fingerprint(
-    definingClass = likeEndpointParserClass().descriptor,
+internal object LikeEndpointParserFingerprint : Fingerprint(
+    definingClass = { likeEndpointParserClass().descriptor },
     returnType = "V",
     filters = listOf(
         fieldAccess(opcode = Opcode.SGET_OBJECT, location = MatchFirst()),
@@ -66,14 +65,12 @@ private fun likeEndpointParserFingerprint() = Fingerprint(
     )
 )
 
-val likeEndpointParserMethod = findMethodDirect { likeEndpointParserFingerprint()() }
-
 val voteTargetField = findFieldDirect {
-    likeEndpointParserFingerprint().instructionMatches[1].instruction.fieldRef!!
+    LikeEndpointParserFingerprint.instructionMatches[1].instruction.fieldRef!!
 }
 
 val votePayloadTargetField = findFieldDirect {
-    val match = likeEndpointParserFingerprint().match()
+    val match = LikeEndpointParserFingerprint.match()
     val assignment = match.instructionMatches[1]
     val register = assignment.instruction.register(0)
     match.method.instructions.take(assignment.index).last {
@@ -82,14 +79,14 @@ val votePayloadTargetField = findFieldDirect {
 }
 
 val votePayloadPresenceField = findFieldDirect {
-    val match = likeEndpointParserFingerprint().match()
+    val match = LikeEndpointParserFingerprint.match()
     match.method.instructions.take(match.instructionMatches[1].index).last {
         it.opcode == Opcode.IGET.ordinal && it.fieldRef?.declaredClass == votePayloadTargetField().declaredClass
     }.fieldRef!!
 }
 
 val votePayloadUnpackMethod = findMethodDirect {
-    val match = likeEndpointParserFingerprint().match()
+    val match = LikeEndpointParserFingerprint.match()
     match.method.instructions.take(match.instructionMatches[1].index).last {
         it.methodRef?.returnType?.descriptor == "Ljava/lang/Object;"
     }.methodRef!!

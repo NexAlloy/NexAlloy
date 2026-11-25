@@ -7,4 +7,5 @@ import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_40_or_greater
 val elementProtoParserHookPatch = createElementProtoParserHookPatch(
     { is_21_40_or_greater },
     VersionCheck,
+    reusesHookedElements = true,
 )

@@ -1,8 +1,13 @@
+@file:OptIn(kotlin.experimental.ExperimentalTypeInference::class)
+
 package io.github.nexalloy.morphe
 
 import io.github.nexalloy.morphe.FieldAccessFilter.Companion.parseJvmFieldAccess
 import io.github.nexalloy.morphe.MethodCallFilter.Companion.parseJvmMethodCall
 import java.util.EnumSet
+import java.util.WeakHashMap
+import org.luckypray.dexkit.DexKitBridge
+import org.luckypray.dexkit.result.ClassData
 import org.luckypray.dexkit.query.matchers.MethodMatcher
 import org.luckypray.dexkit.result.FieldData
 import org.luckypray.dexkit.result.InstructionData
@@ -338,13 +343,25 @@ fun interface InstructionLocation {
 }
 
 
+/** Values belong to an open bridge; a filter singleton can be reused for another APK. */
+private class FilterValue<T>(private val supplier: DexKitBridge.() -> T) {
+    private class Value<T>(val value: T)
+    private val values = WeakHashMap<DexKitBridge, Value<T>>()
+
+    context(bridge: DexKitBridge)
+    fun get(): T = synchronized(values) {
+        values.getOrPut(bridge) { Value(supplier(bridge)) }.value
+    }
+}
+
 fun interface InstructionFilter {
     val location: InstructionLocation
         get() = InstructionLocation.MatchAfterAnywhere()
 
+    context(bridge: DexKitBridge)
     fun matches(enclosingMethod: MethodData, instruction: InstructionData): Boolean
 
-    context(matcher: MethodMatcher)
+    context(bridge: DexKitBridge, matcher: MethodMatcher)
     fun addQuery() {
     }
 }
@@ -354,6 +371,7 @@ class AnyInstruction internal constructor(
     override val location: InstructionLocation
 ) : InstructionFilter {
 
+    context(bridge: DexKitBridge)
     override fun matches(
         enclosingMethod: MethodData,
         instruction: InstructionData
@@ -396,6 +414,7 @@ open class OpcodeFilter(
     override val location: InstructionLocation = InstructionLocation.MatchAfterAnywhere()
 ) : InstructionFilter {
 
+    context(bridge: DexKitBridge)
     override fun matches(
         enclosingMethod: MethodData,
         instruction: InstructionData
@@ -435,6 +454,7 @@ open class OpcodesFilter protected constructor(
         location: InstructionLocation
     ) : this(if (opcodes == null) null else EnumSet.copyOf(opcodes), location)
 
+    context(bridge: DexKitBridge)
     override fun matches(
         enclosingMethod: MethodData,
         instruction: InstructionData
@@ -479,7 +499,7 @@ open class OpcodesFilter protected constructor(
 }
 
 class LiteralFilter internal constructor(
-    literalOrNull: () -> Long?,
+    literalOrNull: DexKitBridge.() -> Long?,
     opcodes: List<Opcode>? = null,
     location: InstructionLocation
 ) : OpcodesFilter(opcodes, location) {
@@ -487,10 +507,14 @@ class LiteralFilter internal constructor(
     /**
      * Store the lambda value instead of calling it more than once.
      */
-    internal val literalValue: Long? by lazy(literalOrNull)
+    private val resolvedLiteral = FilterValue(literalOrNull)
 
-    val literal: () -> Long = { literalValue ?: error("Literal does not exist in this app") }
+    context(bridge: DexKitBridge)
+    internal val literalValue: Long? get() = resolvedLiteral.get()
 
+    val literal: DexKitBridge.() -> Long = { literalValue ?: error("Literal does not exist in this app") }
+
+    context(bridge: DexKitBridge)
     override fun matches(
         enclosingMethod: MethodData,
         instruction: InstructionData
@@ -504,7 +528,7 @@ class LiteralFilter internal constructor(
         return literalValue != null && instruction.literal == literalValue
     }
 
-    context(matcher: MethodMatcher)
+    context(bridge: DexKitBridge, matcher: MethodMatcher)
     override fun addQuery() {
         literalValue?.let { matcher.addUsingNumber(it) }
     }
@@ -575,30 +599,60 @@ fun literal(
  * @param location Where this filter is allowed to match. Default is anywhere after the previous instruction.
  */
 fun literal(
-    literal: () -> Long?,
+    literal: DexKitBridge.() -> Long?,
     opcodes: List<Opcode>? = null,
     location: InstructionLocation = InstructionLocation.MatchAfterAnywhere()
 ) = LiteralFilter(literal, opcodes, location)
 
 
-class MethodCallFilter internal constructor(
-    val definingClass: String? = null,
-    val name: String? = null,
-    val parameters: List<String>? = null,
-    val returnType: String? = null,
-    opcodes: List<Opcode>? = null,
+class MethodCallFilter private constructor(
+    private val constantValues: Values?,
+    private val dynamicValues: FilterValue<Values>?,
+    opcodes: List<Opcode>?,
     location: InstructionLocation
 ) : OpcodesFilter(opcodes, location) {
+    internal constructor(
+        definingClass: String? = null,
+        name: String? = null,
+        parameters: List<String>? = null,
+        returnType: String? = null,
+        opcodes: List<Opcode>? = null,
+        location: InstructionLocation,
+    ) : this(Values(definingClass, name, parameters, returnType), null, opcodes, location)
 
-    private val definingClassComparison =
-        StringComparisonType.typeDeclarationToComparison(definingClass)
+    internal constructor(
+        evaluateValues: DexKitBridge.() -> Values,
+        opcodes: List<Opcode>? = null,
+        location: InstructionLocation,
+    ) : this(null, FilterValue(evaluateValues), opcodes, location)
 
-    private val returnTypeComparison = StringComparisonType.typeDeclarationToComparison(returnType)
+    internal class Values(
+        val definingClass: String?,
+        val name: String?,
+        val parameters: List<String>?,
+        val returnType: String?,
+    ) {
+        val definingClassComparison = StringComparisonType.typeDeclarationToComparison(definingClass)
+        val returnTypeComparison = StringComparisonType.typeDeclarationToComparison(returnType)
+        val parameterTypeComparison = StringComparisonType.typeDeclarationToComparison(parameters)
+    }
 
-    private val parameterTypeComparison =
-        StringComparisonType.typeDeclarationToComparison(parameters)
+    context(bridge: DexKitBridge)
+    private val values: Values get() = constantValues ?: dynamicValues!!.get()
 
+    context(bridge: DexKitBridge)
+    val definingClass: String? get() = values.definingClass
 
+    context(bridge: DexKitBridge)
+    val name: String? get() = values.name
+
+    context(bridge: DexKitBridge)
+    val parameters: List<String>? get() = values.parameters
+
+    context(bridge: DexKitBridge)
+    val returnType: String? get() = values.returnType
+
+    context(bridge: DexKitBridge)
     override fun matches(
         enclosingMethod: MethodData,
         instruction: InstructionData
@@ -607,15 +661,16 @@ class MethodCallFilter internal constructor(
             return false
         }
 
+        val values = values
         val reference = instruction.methodRef ?: return false
 
         // Store local to avoid duplicate field access and Kotlin intrinsic null check calls.
-        val nameLocal = name
+        val nameLocal = values.name
         if (nameLocal != null && reference.name != nameLocal) {
             return false
         }
 
-        val definingClassLocal = definingClass
+        val definingClassLocal = values.definingClass
         if (definingClassLocal != null) {
             val referenceClass = reference.declaredClass!!.descriptor
 
@@ -627,13 +682,13 @@ class MethodCallFilter internal constructor(
                 if (referenceClass != enclosingMethod.declaredClass!!.descriptor) {
                     return false
                 }
-            } else if (!definingClassComparison.compare(referenceClass, definingClassLocal)) {
+            } else if (!values.definingClassComparison.compare(referenceClass, definingClassLocal)) {
                 return false
             }
         }
 
-        val returnTypeLocal = returnType
-        if (returnTypeLocal != null && !returnTypeComparison.compare(
+        val returnTypeLocal = values.returnType
+        if (returnTypeLocal != null && !values.returnTypeComparison.compare(
                 reference.returnType!!.descriptor,
                 returnTypeLocal
             )
@@ -641,11 +696,11 @@ class MethodCallFilter internal constructor(
             return false
         }
 
-        val parametersLocal = parameters
+        val parametersLocal = values.parameters
         if (parametersLocal != null && !parametersMatch(
                 reference.paramTypes.map { it.descriptor },
                 parametersLocal,
-                parameterTypeComparison
+                values.parameterTypeComparison
             )
         ) {
             return false
@@ -654,13 +709,14 @@ class MethodCallFilter internal constructor(
         return true
     }
 
-    context(matcher: MethodMatcher)
+    context(bridge: DexKitBridge, matcher: MethodMatcher)
     override fun addQuery() {
+        val values = values
         matcher.addInvoke {
-            this@MethodCallFilter.definingClass?.let(::getTypeNameCompat)?.let { declaredClass(it) }
-            this@MethodCallFilter.name?.let { name(it) }
-            this@MethodCallFilter.parameters?.let { parameters(it) }
-            this@MethodCallFilter.returnType?.let { returns(it) }
+            values.definingClass?.let(::getTypeNameCompat)?.let { declaredClass(it) }
+            values.name?.let { name(it) }
+            values.parameters?.let { parameters(it) }
+            values.returnType?.let { returns(it) }
         }
     }
 
@@ -860,19 +916,48 @@ fun methodCall(
     location: InstructionLocation = InstructionLocation.MatchAfterAnywhere()
 ) = parseJvmMethodCall(smali, listOf(opcode), location)
 
-class FieldAccessFilter internal constructor(
-    val definingClass: String? = null,
-    val name: String? = null,
-    val type: String? = null,
-    opcodes: List<Opcode>? = null,
+class FieldAccessFilter private constructor(
+    private val constantValues: Values?,
+    private val dynamicValues: FilterValue<Values>?,
+    opcodes: List<Opcode>?,
     location: InstructionLocation
 ) : OpcodesFilter(opcodes, location) {
+    internal constructor(
+        definingClass: String? = null,
+        name: String? = null,
+        type: String? = null,
+        opcodes: List<Opcode>? = null,
+        location: InstructionLocation,
+    ) : this(Values(definingClass, name, type), null, opcodes, location)
 
-    private val definingClassComparison =
-        StringComparisonType.typeDeclarationToComparison(definingClass)
+    internal constructor(
+        evaluateValues: DexKitBridge.() -> Values,
+        opcodes: List<Opcode>? = null,
+        location: InstructionLocation,
+    ) : this(null, FilterValue(evaluateValues), opcodes, location)
 
-    private val typeComparison = StringComparisonType.typeDeclarationToComparison(type)
+    internal class Values(
+        val definingClass: String?,
+        val name: String?,
+        val type: String?,
+    ) {
+        val definingClassComparison = StringComparisonType.typeDeclarationToComparison(definingClass)
+        val typeComparison = StringComparisonType.typeDeclarationToComparison(type)
+    }
 
+    context(bridge: DexKitBridge)
+    private val values: Values get() = constantValues ?: dynamicValues!!.get()
+
+    context(bridge: DexKitBridge)
+    val definingClass: String? get() = values.definingClass
+
+    context(bridge: DexKitBridge)
+    val name: String? get() = values.name
+
+    context(bridge: DexKitBridge)
+    val type: String? get() = values.type
+
+    context(bridge: DexKitBridge)
     override fun matches(
         enclosingMethod: MethodData,
         instruction: InstructionData
@@ -881,14 +966,15 @@ class FieldAccessFilter internal constructor(
             return false
         }
 
+        val values = values
         val reference = instruction.fieldRef ?: return false
 
-        val nameLocal = name
+        val nameLocal = values.name
         if (nameLocal != null && reference.name != nameLocal) {
             return false
         }
 
-        val definingClassLocal = definingClass
+        val definingClassLocal = values.definingClass
         if (definingClassLocal != null) {
             val referenceClass = reference.declaredClass.descriptor
 
@@ -896,29 +982,30 @@ class FieldAccessFilter internal constructor(
                 if (referenceClass != enclosingMethod.declaredClass!!.descriptor) {
                     return false
                 }
-            } else if (!definingClassComparison.compare(referenceClass, definingClassLocal)) {
+            } else if (!values.definingClassComparison.compare(referenceClass, definingClassLocal)) {
                 return false
             }
         }
 
-        val typeLocal = type
-        if (typeLocal != null && !typeComparison.compare(reference.typeSign, typeLocal)) {
+        val typeLocal = values.type
+        if (typeLocal != null && !values.typeComparison.compare(reference.typeSign, typeLocal)) {
             return false
         }
 
         return true
     }
 
-    context(matcher: MethodMatcher)
+    context(bridge: DexKitBridge, matcher: MethodMatcher)
     override fun addQuery() {
+        val values = values
 
-        val declaredClassName = this@FieldAccessFilter.definingClass?.let(::getTypeNameCompat)
-        val typeName = this@FieldAccessFilter.type?.let(::getTypeNameCompat)
+        val declaredClassName = values.definingClass?.let(::getTypeNameCompat)
+        val typeName = values.type?.let(::getTypeNameCompat)
 
-        (declaredClassName ?: name ?: typeName)?.let { _ ->
+        (declaredClassName ?: values.name ?: typeName)?.let { _ ->
             matcher.addUsingField {
                 declaredClassName?.let { declaredClass(it) }
-                this@FieldAccessFilter.name?.let { name(it) }
+                values.name?.let { name(it) }
                 typeName?.let { type(it) }
             }
         }
@@ -1077,7 +1164,7 @@ fun fieldAccess(
 
 
 class StringFilter internal constructor(
-    val string: () -> String,
+    val string: DexKitBridge.() -> String,
     val comparison: StringComparisonType,
     location: InstructionLocation
 ) : OpcodesFilter(listOf(Opcode.CONST_STRING, Opcode.CONST_STRING_JUMBO), location) {
@@ -1085,8 +1172,12 @@ class StringFilter internal constructor(
     /**
      * Store the lambda value instead of calling it more than once.
      */
-    internal val stringValue: String by lazy(string)
+    private val resolvedString = FilterValue(string)
 
+    context(bridge: DexKitBridge)
+    internal val stringValue: String get() = resolvedString.get()
+
+    context(bridge: DexKitBridge)
     override fun matches(
         enclosingMethod: MethodData,
         instruction: InstructionData
@@ -1099,7 +1190,7 @@ class StringFilter internal constructor(
         return comparison.compare(stringReference, stringValue)
     }
 
-    context(matcher: MethodMatcher)
+    context(bridge: DexKitBridge, matcher: MethodMatcher)
     override fun addQuery() {
         matcher.addUsingString(stringValue, comparison.value)
     }
@@ -1123,7 +1214,7 @@ fun string(
  * @param location Where this filter is allowed to match. Default is anywhere after the previous instruction.
  */
 fun string(
-    string: () -> String,
+    string: DexKitBridge.() -> String,
     location: InstructionLocation = InstructionLocation.MatchAfterAnywhere()
 ) = StringFilter(string, StringComparisonType.EQUALS, location)
 
@@ -1155,29 +1246,29 @@ fun string(
  * @param location Where this filter is allowed to match. Default is anywhere after the previous instruction.
  */
 fun string(
-    string: () -> String,
+    string: DexKitBridge.() -> String,
     comparison: StringComparisonType,
     location: InstructionLocation = InstructionLocation.MatchAfterAnywhere()
 ) = StringFilter(string, comparison, location)
 
 
 class NewInstanceFilter internal constructor(
-    val type: () -> String,
+    val type: DexKitBridge.() -> String,
     location: InstructionLocation
 ) : OpcodesFilter(listOf(Opcode.NEW_INSTANCE, Opcode.NEW_ARRAY), location) {
 
     /**
      * Store the lambda value instead of calling it more than once.
      */
-    private val typeValue: String by lazy {
-        val typeValue = type()
-        typeValue
-    }
+    private val resolvedType = FilterValue(type)
 
-    val comparison by lazy {
-        StringComparisonType.typeDeclarationToComparison(typeValue)
-    }
+    context(bridge: DexKitBridge)
+    private val typeValue: String get() = resolvedType.get()
 
+    context(bridge: DexKitBridge)
+    val comparison: StringComparisonType get() = StringComparisonType.typeDeclarationToComparison(typeValue)
+
+    context(bridge: DexKitBridge)
     override fun matches(
         enclosingMethod: MethodData,
         instruction: InstructionData
@@ -1208,8 +1299,9 @@ fun newInstance(
  * @param type Class type semantics as described in [StringComparisonType].
  * @param location Where this filter is allowed to match. Default is anywhere after the previous instruction.
  */
+@OverloadResolutionByLambdaReturnType
 fun newInstance(
-    type: () -> String,
+    type: DexKitBridge.() -> String,
     location: InstructionLocation = InstructionLocation.MatchAfterAnywhere(),
 ) = NewInstanceFilter(type, location)
 
@@ -1237,30 +1329,31 @@ fun newInstance(
  * @param location Where this filter is allowed to match. Default is anywhere after the previous instruction.
  */
 @Deprecated("Instead use non comparison constructor where comparison is based on the type declaration")
+@OverloadResolutionByLambdaReturnType
 fun newInstance(
-    type: () -> String,
+    type: DexKitBridge.() -> String,
     comparison: StringComparisonType,
     location: InstructionLocation = InstructionLocation.MatchAfterAnywhere()
 ) = NewInstanceFilter(type, location)
 
 
 class InstanceOfFilter internal constructor(
-    val type: () -> String,
+    val type: DexKitBridge.() -> String,
     location: InstructionLocation = InstructionLocation.MatchAfterAnywhere()
 ) : OpcodeFilter(Opcode.INSTANCE_OF, location) {
 
     /**
      * Store the lambda value instead of calling it more than once.
      */
-    private val typeValue: String by lazy {
-        val typeValue = type()
-        typeValue
-    }
+    private val resolvedType = FilterValue(type)
 
-    val comparison by lazy {
-        StringComparisonType.typeDeclarationToComparison(typeValue)
-    }
+    context(bridge: DexKitBridge)
+    private val typeValue: String get() = resolvedType.get()
 
+    context(bridge: DexKitBridge)
+    val comparison: StringComparisonType get() = StringComparisonType.typeDeclarationToComparison(typeValue)
+
+    context(bridge: DexKitBridge)
     override fun matches(
         enclosingMethod: MethodData,
         instruction: InstructionData
@@ -1291,8 +1384,9 @@ fun instanceOf(
  * @param type Class type semantics as described in [StringComparisonType].
  * @param location Where this filter is allowed to match. Default is anywhere after the previous instruction.
  */
+@OverloadResolutionByLambdaReturnType
 fun instanceOf(
-    type: () -> String,
+    type: DexKitBridge.() -> String,
     location: InstructionLocation = InstructionLocation.MatchAfterAnywhere()
 ) = InstanceOfFilter(type, location)
 
@@ -1307,7 +1401,7 @@ fun instanceOf(
     type: String,
     comparison: StringComparisonType,
     location: InstructionLocation = InstructionLocation.MatchAfterAnywhere()
-) = CheckCastFilter({ type }, location)
+) = InstanceOfFilter({ type }, location)
 
 /**
  * Opcode type [Opcode.INSTANCE_OF] with a non obfuscated class type.
@@ -1316,30 +1410,31 @@ fun instanceOf(
  * @param location Where this filter is allowed to match. Default is anywhere after the previous instruction.
  */
 @Deprecated("Instead use non comparison constructor where comparison is based on the type declaration")
+@OverloadResolutionByLambdaReturnType
 fun instanceOf(
-    type: () -> String,
+    type: DexKitBridge.() -> String,
     comparison: StringComparisonType,
     location: InstructionLocation = InstructionLocation.MatchAfterAnywhere()
-) = CheckCastFilter(type, location)
+) = InstanceOfFilter(type, location)
 
 
 class CheckCastFilter internal constructor(
-    val type: () -> String,
+    val type: DexKitBridge.() -> String,
     location: InstructionLocation = InstructionLocation.MatchAfterAnywhere()
 ) : OpcodeFilter(Opcode.CHECK_CAST, location) {
 
     /**
      * Store the lambda value instead of calling it more than once.
      */
-    private val typeValue: String by lazy {
-        val typeValue = type()
-        typeValue
-    }
+    private val resolvedType = FilterValue(type)
 
-    val comparison by lazy {
-        StringComparisonType.typeDeclarationToComparison(typeValue)
-    }
+    context(bridge: DexKitBridge)
+    private val typeValue: String get() = resolvedType.get()
 
+    context(bridge: DexKitBridge)
+    val comparison: StringComparisonType get() = StringComparisonType.typeDeclarationToComparison(typeValue)
+
+    context(bridge: DexKitBridge)
     override fun matches(
         enclosingMethod: MethodData,
         instruction: InstructionData
@@ -1370,7 +1465,320 @@ fun checkCast(
  * @param type Class type semantics as described in [StringComparisonType].
  * @param location Where this filter is allowed to match. Default is anywhere after the previous instruction.
  */
+@OverloadResolutionByLambdaReturnType
 fun checkCast(
-    type: () -> String,
+    type: DexKitBridge.() -> String,
     location: InstructionLocation = InstructionLocation.MatchAfterAnywhere()
 ) = CheckCastFilter(type, location)
+
+@Deprecated("Instead use non comparison constructor where comparison is based on the type declaration")
+fun checkCast(
+    type: String,
+    comparison: StringComparisonType,
+    location: InstructionLocation = InstructionLocation.MatchAfterAnywhere()
+) = CheckCastFilter({ type }, location)
+
+@Deprecated("Instead use non comparison constructor where comparison is based on the type declaration")
+fun checkCast(
+    type: DexKitBridge.() -> String,
+    comparison: StringComparisonType,
+    location: InstructionLocation = InstructionLocation.MatchAfterAnywhere()
+) = CheckCastFilter(type, location)
+
+/** Resolves a class in the current bridge when matching, without capturing an APK at declaration time. */
+@OverloadResolutionByLambdaReturnType
+@JvmName("newInstanceOfClass")
+fun newInstance(
+    type: DexKitBridge.() -> ClassData,
+    location: InstructionLocation = InstructionLocation.MatchAfterAnywhere()
+) = NewInstanceFilter({ type().descriptor }, location)
+
+/** Resolves a class in the current bridge when matching, without capturing an APK at declaration time. */
+@OverloadResolutionByLambdaReturnType
+@JvmName("instanceOfOfClass")
+fun instanceOf(
+    type: DexKitBridge.() -> ClassData,
+    location: InstructionLocation = InstructionLocation.MatchAfterAnywhere()
+) = InstanceOfFilter({ type().descriptor }, location)
+
+/** Resolves a class in the current bridge when matching, without capturing an APK at declaration time. */
+@OverloadResolutionByLambdaReturnType
+@JvmName("checkCastOfClass")
+fun checkCast(
+    type: DexKitBridge.() -> ClassData,
+    location: InstructionLocation = InstructionLocation.MatchAfterAnywhere()
+) = CheckCastFilter({ type().descriptor }, location)
+
+/**
+ * Resolves dynamic reference/type values once per bridge when querying or matching.
+ * Type declarations and instruction locations follow the fixed-value overload.
+ */
+@OverloadResolutionByLambdaReturnType
+fun methodCall(
+    reference: DexKitBridge.() -> MethodData,
+    location: InstructionLocation = InstructionLocation.MatchAfterAnywhere(),
+) = MethodCallFilter(
+    {
+        val method = reference()
+        MethodCallFilter.Values(
+            method.declaredClass!!.descriptor,
+            method.name,
+            method.paramTypes.map { it.descriptor },
+            method.returnType!!.descriptor,
+        )
+    },
+    null,
+    location,
+)
+
+/**
+ * Resolves dynamic reference/type values once per bridge when querying or matching.
+ * Type declarations and instruction locations follow the fixed-value overload.
+ */
+@OverloadResolutionByLambdaReturnType
+fun methodCall(
+    definingClass: DexKitBridge.() -> CharSequence,
+    name: String? = null,
+    parameters: List<String>? = null,
+    returnType: String? = null,
+    opcodes: List<Opcode>? = null,
+    location: InstructionLocation = InstructionLocation.MatchAfterAnywhere(),
+) = MethodCallFilter(
+    { MethodCallFilter.Values(definingClass().toString(), name, parameters, returnType) },
+    opcodes,
+    location,
+)
+
+/**
+ * Resolves dynamic reference/type values once per bridge when querying or matching.
+ * Type declarations and instruction locations follow the fixed-value overload.
+ */
+@OverloadResolutionByLambdaReturnType
+fun methodCall(
+    definingClass: String? = null,
+    name: String? = null,
+    parameters: DexKitBridge.() -> List<CharSequence>,
+    returnType: String? = null,
+    opcodes: List<Opcode>? = null,
+    location: InstructionLocation = InstructionLocation.MatchAfterAnywhere(),
+) = MethodCallFilter(
+    { MethodCallFilter.Values(definingClass, name, parameters().map { it.toString() }, returnType) },
+    opcodes,
+    location,
+)
+
+/**
+ * Resolves dynamic reference/type values once per bridge when querying or matching.
+ * Type declarations and instruction locations follow the fixed-value overload.
+ */
+@OverloadResolutionByLambdaReturnType
+fun methodCall(
+    definingClass: String? = null,
+    name: String? = null,
+    parameters: List<String>? = null,
+    returnType: DexKitBridge.() -> CharSequence,
+    opcodes: List<Opcode>? = null,
+    location: InstructionLocation = InstructionLocation.MatchAfterAnywhere(),
+) = MethodCallFilter(
+    { MethodCallFilter.Values(definingClass, name, parameters, returnType().toString()) },
+    opcodes,
+    location,
+)
+
+/**
+ * Resolves dynamic reference/type values once per bridge when querying or matching.
+ * Type declarations and instruction locations follow the fixed-value overload.
+ */
+@OverloadResolutionByLambdaReturnType
+fun methodCall(
+    definingClass: DexKitBridge.() -> CharSequence,
+    name: String? = null,
+    parameters: List<String>? = null,
+    returnType: String? = null,
+    opcode: Opcode,
+    location: InstructionLocation = InstructionLocation.MatchAfterAnywhere(),
+) = MethodCallFilter(
+    { MethodCallFilter.Values(definingClass().toString(), name, parameters, returnType) },
+    listOf(opcode),
+    location,
+)
+
+/**
+ * Resolves dynamic reference/type values once per bridge when querying or matching.
+ * Type declarations and instruction locations follow the fixed-value overload.
+ */
+@OverloadResolutionByLambdaReturnType
+fun methodCall(
+    definingClass: String? = null,
+    name: String? = null,
+    parameters: DexKitBridge.() -> List<CharSequence>,
+    returnType: String? = null,
+    opcode: Opcode,
+    location: InstructionLocation = InstructionLocation.MatchAfterAnywhere(),
+) = MethodCallFilter(
+    { MethodCallFilter.Values(definingClass, name, parameters().map { it.toString() }, returnType) },
+    listOf(opcode),
+    location,
+)
+
+/**
+ * Resolves dynamic reference/type values once per bridge when querying or matching.
+ * Type declarations and instruction locations follow the fixed-value overload.
+ */
+@OverloadResolutionByLambdaReturnType
+fun methodCall(
+    definingClass: String? = null,
+    name: String? = null,
+    parameters: List<String>? = null,
+    returnType: DexKitBridge.() -> CharSequence,
+    opcode: Opcode,
+    location: InstructionLocation = InstructionLocation.MatchAfterAnywhere(),
+) = MethodCallFilter(
+    { MethodCallFilter.Values(definingClass, name, parameters, returnType().toString()) },
+    listOf(opcode),
+    location,
+)
+
+/**
+ * Resolves dynamic reference/type values once per bridge when querying or matching.
+ * Type declarations and instruction locations follow the fixed-value overload.
+ */
+@OverloadResolutionByLambdaReturnType
+fun fieldAccess(
+    reference: DexKitBridge.() -> FieldData,
+    opcodes: List<Opcode>? = null,
+    location: InstructionLocation = InstructionLocation.MatchAfterAnywhere(),
+) = FieldAccessFilter(
+    {
+        val field = reference()
+        FieldAccessFilter.Values(field.declaredClass.descriptor, field.name, field.typeSign)
+    },
+    opcodes,
+    location,
+)
+
+/**
+ * Resolves dynamic reference/type values once per bridge when querying or matching.
+ * Type declarations and instruction locations follow the fixed-value overload.
+ */
+@OverloadResolutionByLambdaReturnType
+fun fieldAccess(
+    definingClass: DexKitBridge.() -> CharSequence,
+    name: String? = null,
+    type: String? = null,
+    opcodes: List<Opcode>? = null,
+    location: InstructionLocation = InstructionLocation.MatchAfterAnywhere(),
+) = FieldAccessFilter(
+    { FieldAccessFilter.Values(definingClass().toString(), name, type) },
+    opcodes,
+    location,
+)
+
+/**
+ * Resolves dynamic reference/type values once per bridge when querying or matching.
+ * Type declarations and instruction locations follow the fixed-value overload.
+ */
+@OverloadResolutionByLambdaReturnType
+fun fieldAccess(
+    definingClass: String? = null,
+    name: String? = null,
+    type: DexKitBridge.() -> CharSequence,
+    opcodes: List<Opcode>? = null,
+    location: InstructionLocation = InstructionLocation.MatchAfterAnywhere(),
+) = FieldAccessFilter(
+    { FieldAccessFilter.Values(definingClass, name, type().toString()) },
+    opcodes,
+    location,
+)
+
+/**
+ * Resolves dynamic reference/type values once per bridge when querying or matching.
+ * Type declarations and instruction locations follow the fixed-value overload.
+ */
+@OverloadResolutionByLambdaReturnType
+fun fieldAccess(
+    definingClass: DexKitBridge.() -> CharSequence,
+    name: String? = null,
+    type: DexKitBridge.() -> CharSequence,
+    opcodes: List<Opcode>? = null,
+    location: InstructionLocation = InstructionLocation.MatchAfterAnywhere(),
+) = FieldAccessFilter(
+    { FieldAccessFilter.Values(definingClass().toString(), name, type().toString()) },
+    opcodes,
+    location,
+)
+
+/**
+ * Resolves dynamic reference/type values once per bridge when querying or matching.
+ * Type declarations and instruction locations follow the fixed-value overload.
+ */
+@OverloadResolutionByLambdaReturnType
+fun fieldAccess(
+    reference: DexKitBridge.() -> FieldData,
+    opcode: Opcode,
+    location: InstructionLocation = InstructionLocation.MatchAfterAnywhere(),
+) = FieldAccessFilter(
+    {
+        val field = reference()
+        FieldAccessFilter.Values(field.declaredClass.descriptor, field.name, field.typeSign)
+    },
+    listOf(opcode),
+    location,
+)
+
+/**
+ * Resolves dynamic reference/type values once per bridge when querying or matching.
+ * Type declarations and instruction locations follow the fixed-value overload.
+ */
+@OverloadResolutionByLambdaReturnType
+fun fieldAccess(
+    definingClass: DexKitBridge.() -> CharSequence,
+    name: String? = null,
+    type: String? = null,
+    opcode: Opcode,
+    location: InstructionLocation = InstructionLocation.MatchAfterAnywhere(),
+) = FieldAccessFilter(
+    { FieldAccessFilter.Values(definingClass().toString(), name, type) },
+    listOf(opcode),
+    location,
+)
+
+/**
+ * Resolves dynamic reference/type values once per bridge when querying or matching.
+ * Type declarations and instruction locations follow the fixed-value overload.
+ */
+@OverloadResolutionByLambdaReturnType
+fun fieldAccess(
+    definingClass: String? = null,
+    name: String? = null,
+    type: DexKitBridge.() -> CharSequence,
+    opcode: Opcode,
+    location: InstructionLocation = InstructionLocation.MatchAfterAnywhere(),
+) = FieldAccessFilter(
+    { FieldAccessFilter.Values(definingClass, name, type().toString()) },
+    listOf(opcode),
+    location,
+)
+
+/**
+ * Resolves dynamic reference/type values once per bridge when querying or matching.
+ * Type declarations and instruction locations follow the fixed-value overload.
+ */
+@OverloadResolutionByLambdaReturnType
+fun fieldAccess(
+    definingClass: DexKitBridge.() -> CharSequence,
+    name: String? = null,
+    type: DexKitBridge.() -> CharSequence,
+    opcode: Opcode,
+    location: InstructionLocation = InstructionLocation.MatchAfterAnywhere(),
+) = FieldAccessFilter(
+    { FieldAccessFilter.Values(definingClass().toString(), name, type().toString()) },
+    listOf(opcode),
+    location,
+)
+
+/** Exact field reference with any field opcode. */
+fun fieldAccess(
+    reference: FieldData,
+    location: InstructionLocation = InstructionLocation.MatchAfterAnywhere()
+) = FieldAccessFilter(reference.declaredClass.descriptor, reference.name, reference.typeSign, null, location)

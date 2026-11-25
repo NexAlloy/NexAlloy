@@ -9,7 +9,7 @@ import java.nio.ByteBuffer
 
 // The Cronet hooks are shared with stream spoofing upstream; downloads use them independently.
 val plainStreamRequestsPatch = patch {
-    ::priorityDataSourceOpenMethod.hookMethod(scopedHook(::priorityTaskProceedMethod.method) {
+    PriorityDataSourceOpenFingerprint.hookMethod(scopedHook(PriorityTaskProceedFingerprint.method) {
         after { if (!it.hasThrowable()) SpoofVideoStreamsPatch.onPriorityDataSourceOpen() }
     })
     // Streams of other clients are plain urls, which the server rejects or sends slowly if they are

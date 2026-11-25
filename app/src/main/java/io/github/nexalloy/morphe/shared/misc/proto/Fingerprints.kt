@@ -1,10 +1,12 @@
 package io.github.nexalloy.morphe.shared.misc.proto
 
 import io.github.nexalloy.RequireAppVersion
+import io.github.nexalloy.TargetApp
 import io.github.nexalloy.morphe.AccessFlags
 import io.github.nexalloy.morphe.Fingerprint
 import io.github.nexalloy.morphe.Opcode
 import io.github.nexalloy.morphe.StrictQuery
+import io.github.nexalloy.morphe.StringComparisonType
 import io.github.nexalloy.morphe.checkCast
 import io.github.nexalloy.morphe.findMethodDirect
 import io.github.nexalloy.morphe.methodCall
@@ -40,16 +42,30 @@ private object ProtoStuffReflectionFingerprint : Fingerprint(
 )
 
 /** Bytes of an inline resource of a response, rather than a proto element. Added in YouTube 21.40. */
-@get:RequireAppVersion(minVersion = "21.40.000")
-val resourceBytesMethod = findMethodDirect {
-    val parser = NewElementProtoParserFingerprint()
-    Fingerprint(
-        accessFlags = listOf(AccessFlags.PRIVATE, AccessFlags.STATIC),
-        returnType = "[B",
-        parameters = listOf(parser.paramTypes.first().descriptor, "Z"),
-        filters = listOf(
-            methodCall(reference = parser),
-            opcode(Opcode.ARRAY_LENGTH)
-        )
-    )()
-}
+@RequireAppVersion(minVersion = "21.40.000")
+internal object ResourceBytesFingerprint : Fingerprint(
+    accessFlags = listOf(AccessFlags.PRIVATE, AccessFlags.STATIC),
+    returnType = "[B",
+    parameters = { listOf(NewElementProtoParserFingerprint().paramTypes.first().descriptor, "Z") },
+    filters = listOf(
+        methodCall(reference = { NewElementProtoParserFingerprint() }),
+        opcode(Opcode.ARRAY_LENGTH)
+    )
+)
+
+@TargetApp("youtube")
+internal object RenderNextEnablementCheckFingerprint : Fingerprint(
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
+    returnType = "Z",
+    filters = listOf(
+        string("RenderNextEnablementCheck", StringComparisonType.CONTAINS)
+    )
+)
+
+@TargetApp("youtube")
+internal object ElementConverterFingerprint : Fingerprint(
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "L",
+    parameters = listOf("L"),
+    filters = listOf(methodCall(returnType = "[B"), methodCall(reference = { RenderNextEnablementCheckFingerprint() }))
+)

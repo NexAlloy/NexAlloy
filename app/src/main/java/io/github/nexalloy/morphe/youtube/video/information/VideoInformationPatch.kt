@@ -12,7 +12,7 @@ import io.github.nexalloy.hookMethod
 import io.github.nexalloy.morphe.shared.misc.litho.context.conversionContextPatch
 import io.github.nexalloy.morphe.shared.misc.textcomponent.hookSpannableString
 import io.github.nexalloy.morphe.shared.misc.textcomponent.textComponentPatch
-import io.github.nexalloy.morphe.shared.misc.videoinformation.playbackParametersSetterFingerprint
+import io.github.nexalloy.morphe.shared.misc.videoinformation.PlaybackParametersSetterFingerprint
 import io.github.nexalloy.morphe.youtube.misc.playservice.VersionCheck
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_29_or_greater
 import io.github.nexalloy.morphe.youtube.shared.InitializePlaybackSpeedValuesFingerprint
@@ -81,7 +81,7 @@ fun userSelectedPlaybackSpeedHook(hook: (speed: Float) -> Unit) {
  * Skips a player status change when the hook returns true.
  */
 internal fun PatchExecutor.playerStatusOverrideHook(hook: (status: Enum<*>) -> Boolean) {
-    ::playerStatusMethod.hookMethod {
+    PlayerStatusFingerprint.hookMethod {
         before {
             if (hook(it.args[0] as Enum<*>)) it.result = null
         }
@@ -355,7 +355,7 @@ val VideoInformationPatch = patch(
     }
 
     // A preloaded playback, such as the next Short, becomes the current one without loadVideo().
-    ::currentPlaybackMethod.hookMethod(scopedHook(::currentPlaybackApplyResponseMethod.method) {
+    CurrentPlaybackFingerprint.hookMethod(scopedHook(::currentPlaybackApplyResponseMethod.method) {
         before { updateChannelInformation(it.args[0]) }
     })
 
@@ -374,17 +374,17 @@ val VideoInformationPatch = patch(
 internal fun PatchExecutor.addExoPlayerHooks() {
 
     val exoPlayerClass =
-        classLoader.loadClass(::playbackParametersSetterFingerprint.dexMethod.className)
+        classLoader.loadClass(PlaybackParametersSetterFingerprint.dexMethod.className)
 
-    val setPlaybackParametersMethod = ::playbackParametersSetterFingerprint.method
+    val setPlaybackParametersMethod = PlaybackParametersSetterFingerprint.method
 
     val playbackParametersClass =
-        classLoader.loadClass(::playbackParametersSetterFingerprint.dexMethod.paramTypeNames[0])
+        classLoader.loadClass(PlaybackParametersSetterFingerprint.dexMethod.paramTypeNames[0])
 
     val floatFields = playbackParametersClass.declaredFields.filter { it.type == Float::class.java }
     val speedField = floatFields[0]
     val pitchField = floatFields[1]
-    ::playbackParametersSetterFingerprint.hookMethod {
+    PlaybackParametersSetterFingerprint.hookMethod {
         before {
             val speed = speedField.get(it.args[0]) as Float
             val pitch = pitchField.get(it.args[0]) as Float

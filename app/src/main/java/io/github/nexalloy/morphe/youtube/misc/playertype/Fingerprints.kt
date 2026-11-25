@@ -60,28 +60,23 @@ internal object VideoStateEnumFingerprint : Fingerprint(
     )
 )
 
-val videoStateFingerprint = findMethodDirect {
-    val controlStateType = ControlsStateToStringFingerprint().declaredClass!!.descriptor
-    val videoStateType = VideoStateEnumFingerprint().declaredClass!!.descriptor
-
-    Fingerprint(
-        accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
-        returnType = "V",
-        parameters = listOf(element = controlStateType),
-        filters = listOf(
-            // Obfuscated parameter field name.
-            fieldAccess(
-                definingClass = controlStateType,
-                type = videoStateType
-            ),
-            resourceLiteral(ResourceType.STRING, "accessibility_play"),
-            resourceLiteral(ResourceType.STRING, "accessibility_pause")
-        )
-    )()
-}
+internal object VideoStateFingerprint : Fingerprint(
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "V",
+    parameters = { listOf(ControlsStateToStringFingerprint().declaredClass!!.descriptor) },
+    filters = listOf(
+        // Obfuscated parameter field name.
+        fieldAccess(
+            definingClass = { ControlsStateToStringFingerprint().declaredClass!!.descriptor },
+            type = { VideoStateEnumFingerprint().declaredClass!!.descriptor }
+        ),
+        resourceLiteral(ResourceType.STRING, "accessibility_play"),
+        resourceLiteral(ResourceType.STRING, "accessibility_pause")
+    )
+)
 
 val videoStateParameterField = findFieldDirect {
-    videoStateFingerprint().let { method ->
+    VideoStateFingerprint().let { method ->
         method.usingFields.distinct().single { field ->
             // obfuscated parameter field name
             field.usingType == FieldUsingType.Read && field.field.declaredClass == method.paramTypes[0]

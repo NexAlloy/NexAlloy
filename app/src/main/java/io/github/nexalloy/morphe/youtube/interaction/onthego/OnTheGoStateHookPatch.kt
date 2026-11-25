@@ -10,9 +10,9 @@ import io.github.nexalloy.patch
 internal val onTheGoStateHookPatch = patch {
     dependsOn(VersionCheck)
     if (is_21_05_or_greater) {
-        val getter = ::onTheGoStateGetterMethod.method
-        val setter = ::onTheGoStateSetterMethod.method
-        ::onTheGoStateConstructor.hookMethod {
+        val getter = OnTheGoStateGetterFingerprint.method
+        val setter = OnTheGoStateSetterFingerprint.method
+        OnTheGoStateConstructorFingerprint.hookMethod {
             after {
                 val state = it.thisObject
                 OnTheGoPatch.setOnTheGoState(object : OnTheGoPatch.OnTheGoState {

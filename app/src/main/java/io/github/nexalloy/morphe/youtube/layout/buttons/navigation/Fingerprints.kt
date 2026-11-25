@@ -103,6 +103,10 @@ internal object CreatePivotBarFingerprint : Fingerprint(
     ),
 )
 
+/**
+ * The feed page sets with an enum of its response if the navigation bar hides while scrolling.
+ * The last match is the result of the enum conversion, and the navigation bar hides only if it is 2.
+ */
 internal object AutoHideNavigationBarOnFeedScrollingFingerprint : Fingerprint(
     accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
     returnType = "V",
@@ -112,7 +116,82 @@ internal object AutoHideNavigationBarOnFeedScrollingFingerprint : Fingerprint(
         methodCall(
             smali = "Landroid/view/ViewConfiguration;->getScaledTouchSlop()I",
             location = MatchAfterWithin(5)
-        )
+        ),
+        fieldAccess(opcode = Opcode.IGET, type = "I"),
+        methodCall(
+            opcode = Opcode.INVOKE_STATIC,
+            parameters = listOf("I"),
+            returnType = "I",
+            location = MatchAfterImmediately()
+        ),
+        opcode(Opcode.MOVE_RESULT, location = MatchAfterImmediately())
+    )
+)
+
+/**
+ * Called by any list when it scrolls, before its scroll listeners are called.
+ */
+internal object ListScrolledFingerprint : Fingerprint(
+    definingClass = "Landroid/support/v7/widget/RecyclerView;",
+    returnType = "V",
+    parameters = listOf("I", "I"),
+    filters = listOf(
+        methodCall(smali = "Landroid/support/v7/widget/RecyclerView;->onScrollChanged(IIII)V")
+    )
+)
+
+/**
+ * Scroll listener of the AI search results, which hides the navigation bar through the bottom bar controller,
+ * and through the newer controller if the feature flag is on, whatever the page sets.
+ */
+@RequireAppVersion(minVersion = "21.42.000")
+internal object SearchResultsAutoHideNavigationBarFingerprint : Fingerprint(
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "V",
+    parameters = listOf("Landroid/support/v7/widget/RecyclerView;", "I", "I"),
+    filters = listOf(
+        methodCall(smali = "Ljava/lang/Math;->abs(I)I"),
+        // Bottom bar controller, which is not called if null.
+        opcode(Opcode.CHECK_CAST),
+        opcode(Opcode.IF_EQZ, location = MatchAfterImmediately()),
+        methodCall(
+            opcode = Opcode.INVOKE_INTERFACE,
+            parameters = listOf("Z", "Z"),
+            returnType = "V",
+            location = MatchAfterImmediately()
+        ),
+        // Newer bottom bar controller.
+        literal(45649805L),
+        methodCall(returnType = "Z", location = MatchAfterImmediately()),
+        opcode(Opcode.MOVE_RESULT, location = MatchAfterImmediately()),
+        methodCall(opcode = Opcode.INVOKE_VIRTUAL, parameters = listOf("Z", "Z"), returnType = "V"),
+        // Header that follows the scroll.
+        fieldAccess(opcode = Opcode.SGET_OBJECT, type = "Landroid/util/Property;")
+    )
+)
+
+/**
+ * Enum of the views at the bottom of the screen, such as the navigation bar and the miniplayer.
+ * The app keeps the height of each of them, and places the other views above these heights.
+ */
+internal object BottomUiEnumFingerprint : Fingerprint(
+    name = "<clinit>",
+    filters = listOf(
+        string("PIVOT_BAR"),
+        string("BOTTOM_UI"),
+        string("MINI_PLAYER")
+    )
+)
+
+/**
+ * Sets the height of one of the views at the bottom of the screen.
+ */
+@RequireAppVersion(minVersion = "20.31.000")
+internal object SetBottomUiHeightFingerprint : Fingerprint(
+    returnType = "V",
+    parameters = { listOf(BottomUiEnumFingerprint().declaredClass!!.descriptor, "I") },
+    filters = listOf(
+        methodCall(smali = "Ljava/util/EnumMap;->put(Ljava/lang/Enum;Ljava/lang/Object;)Ljava/lang/Object;")
     )
 )
 
@@ -225,14 +304,12 @@ internal val pivotBarRendererListMethod = findMethodDirect {
     }
 }
 
-@get:RequireAppVersion(minVersion = "21.35.000")
-internal val pivotBarRendererListBuilderMethod = findMethodDirect {
-    Fingerprint(
-        accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
-        returnType = PivotBarRendererListFingerprint.instructionMatches[2].instruction.fieldRef!!.type!!.descriptor,
-        parameters = listOf("Ljava/util/Collection;")
-    )()
-}
+@RequireAppVersion(minVersion = "21.35.000")
+internal object PivotBarRendererListBuilderFingerprint : Fingerprint(
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.STATIC),
+    returnType = { PivotBarRendererListFingerprint.instructionMatches[2].instruction.fieldRef!!.type!!.descriptor },
+    parameters = listOf("Ljava/util/Collection;")
+)
 
 /**
  * Tabs of the browse response (singleColumnBrowseResultsRenderer).
@@ -272,16 +349,13 @@ internal object PivotBarItemProtoFactoryFingerprint : Fingerprint(
     filters = listOf(literal(117501096L))
 )
 
-@get:RequireAppVersion(minVersion = "21.35.000")
-internal val pivotBarIconTypeLookupMethod = findMethodDirect {
-    val iconType = PivotBarItemProtoFactoryFingerprint().paramTypes[2].descriptor
-    Fingerprint(
-        definingClass = iconType,
-        isStatic = true,
-        returnType = iconType,
-        parameters = listOf("I")
-    )()
-}
+@RequireAppVersion(minVersion = "21.35.000")
+internal object PivotBarIconTypeLookupFingerprint : Fingerprint(
+    definingClass = { PivotBarItemProtoFactoryFingerprint().paramTypes[2].descriptor },
+    isStatic = true,
+    returnType = { PivotBarItemProtoFactoryFingerprint().paramTypes[2].descriptor },
+    parameters = { listOf("I") }
+)
 
 internal val toolbarButtonConstructor = findMethodDirect {
     val toolbar = ToolBarButtonFingerprint.match()
@@ -295,4 +369,22 @@ internal val toolbarButtonConstructor = findMethodDirect {
             type == rendererType && method.paramTypes.getOrNull(index + 1)?.descriptor == "Ljava/util/List;"
         }
     }
+}
+
+@get:RequireAppVersion(minVersion = "20.31.000")
+internal val feedScrollBehaviorMethod = findMethodDirect {
+    AutoHideNavigationBarOnFeedScrollingFingerprint.instructionMatches[3].instruction.methodRef!!
+}
+@get:RequireAppVersion(minVersion = "21.42.000")
+internal val searchScrollHideControllerMethods = findMethodListDirect {
+    val reference = SearchResultsAutoHideNavigationBarFingerprint.instructionMatches[3].instruction.methodRef!!
+    Fingerprint(
+        interfaces = listOf(reference.declaredClass!!.descriptor), name = reference.name,
+        returnType = "V", parameters = listOf("Z", "Z")
+    ).matchAll().map { it.method }.filterNot { Modifier.isAbstract(it.modifiers) }
+        .also { check(it.isNotEmpty()) }
+}
+@get:RequireAppVersion(minVersion = "21.42.000")
+internal val searchScrollNewControllerMethod = findMethodDirect {
+    SearchResultsAutoHideNavigationBarFingerprint.instructionMatches[7].instruction.methodRef!!
 }

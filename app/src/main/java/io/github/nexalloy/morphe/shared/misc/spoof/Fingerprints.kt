@@ -171,19 +171,15 @@ val cronetDataSpecField = findFieldDirect {
     }
 }
 
-val priorityTaskProceedMethod = findMethodDirect {
-    Fingerprint(
-        returnType = "V", parameters = listOf("I"),
-        filters = listOf(methodCall(reference = PriorityTooLowExceptionFingerprint()))
-    )()
-}
-val priorityDataSourceOpenMethod = findMethodDirect {
-    Fingerprint(
-        returnType = "J", parameters = listOf("L"),
-        filters = listOf(
-            methodCall(reference = priorityTaskProceedMethod()),
-            methodCall(opcode = Opcode.INVOKE_INTERFACE, returnType = "J",
-                location = MatchAfterWithin(3))
-        )
-    )()
-}
+internal object PriorityTaskProceedFingerprint : Fingerprint(
+    returnType = "V", parameters = listOf("I"),
+    filters = listOf(methodCall(reference = { PriorityTooLowExceptionFingerprint() }))
+)
+internal object PriorityDataSourceOpenFingerprint : Fingerprint(
+    returnType = "J", parameters = listOf("L"),
+    filters = listOf(
+        methodCall(reference = { PriorityTaskProceedFingerprint() }),
+        methodCall(opcode = Opcode.INVOKE_INTERFACE, returnType = "J",
+            location = MatchAfterWithin(3))
+    )
+)
