@@ -4,10 +4,12 @@ package io.github.nexalloy
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.ActivityManager
 import android.app.Application
 import android.content.Context.MODE_PRIVATE
 import android.os.Build
 import android.os.Bundle
+import android.os.Process
 import android.webkit.WebView
 import app.morphe.extension.shared.Logger
 import app.morphe.extension.shared.ResourceUtils
@@ -163,6 +165,7 @@ class PatchExecutor(
     private lateinit var patches: Array<Patch>
     private val appliedPatches = mutableSetOf<Patch>()
     private val failedPatches = mutableListOf<Patch>()
+    private var initializationProgress: InitializationProgress? = null
 
     // cache
     private val moduleRel = BuildConfig.COMMIT_HASH
@@ -174,10 +177,12 @@ class PatchExecutor(
     }
 
     fun applyPatches(patches: Array<Patch>) {
-        this.patches = patches
+        this.patches = patches.filter { hook ->
+            patchPreferences?.getBoolean(hook.name, hook.use) ?: hook.use
+        }.toTypedArray()
         val t = measureTimeMillis {
-            loadCacheIfValid()
             try {
+                loadCacheIfValid()
                 XposedBridge.log("NexAlloy version: ${BuildConfig.BUILD_TYPE} ${BuildConfig.VERSION_NAME} ${BuildConfig.COMMIT_HASH}")
                 XposedBridge.log("${lpparam.applicationInfo.packageName} version: ${getAppVersion()}")
 
@@ -189,6 +194,8 @@ class PatchExecutor(
                     dexkit.close()
                 } finally {
                     FingerprintQueryCache.shared.clearClosedBridges()
+                    initializationProgress?.close()
+                    initializationProgress = null
                 }
             }
         }
@@ -212,24 +219,49 @@ class PatchExecutor(
         if (!isCached) {
             cache.clearAll()
             cache.putString("id", id)
-            Utils.showToastLong("NexAlloy is initializing, please wait...")
+            val processName = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                Application.getProcessName()
+            } else {
+                appContext.getSystemService(ActivityManager::class.java).runningAppProcesses
+                    ?.firstOrNull { it.pid == Process.myPid() }?.processName
+            }
+            if (lpparam.packageName == "com.google.android.youtube" && processName == lpparam.packageName) {
+                initializationProgress = runCatching {
+                    InitializationProgress.start(appContext, patches.size)
+                }.onFailure { XposedBridge.log(it) }.getOrNull()
+            }
+            if (initializationProgress == null) {
+                Utils.showToastLong("NexAlloy is initializing, please wait...")
+            }
         }
     }
 
     private fun executePatches() {
-        patches.forEach { hook ->
-            if (appliedPatches.contains(hook)) return@forEach
-            /**
-             * @see io.github.nexalloy.activity.AppPatchSettingsActivity.AppPatchSettingsFragment.onCreate
-             * */
-            val isEnabled = patchPreferences?.getBoolean(hook.name, hook.use) ?: hook.use
-            if (!isEnabled) return@forEach // Pref Key
-            runCatching { hook.run(this) }.onFailure { err ->
-                XposedBridge.log(err)
-                failedPatches.add(hook)
-            }.onSuccess {
-                appliedPatches.add(hook)
+        initializationProgress?.update(0)
+        patches.forEachIndexed { index, hook ->
+            if (!appliedPatches.contains(hook)) {
+                runCatching { runPatch(hook) }.onFailure { err ->
+                    XposedBridge.log(err)
+                    failedPatches.add(hook)
+                }.onSuccess {
+                    appliedPatches.add(hook)
+                }
             }
+            initializationProgress?.update(index + 1)
+        }
+    }
+
+    private fun runPatch(hook: Patch) {
+        // Match settings: internal dependencies keep the enclosing patch's label visible.
+        if (hook.name.isBlank() || hook.name.startsWith("<")) {
+            hook.run(this)
+            return
+        }
+        val previousName = initializationProgress?.setPatchName(hook.name)
+        try {
+            hook.run(this)
+        } finally {
+            initializationProgress?.setPatchName(previousName)
         }
     }
 
@@ -265,7 +297,7 @@ class PatchExecutor(
     fun dependsOn(vararg patches: Patch) {
         patches.forEach { hook ->
             if (appliedPatches.contains(hook)) return@forEach
-            runCatching { (hook.run(this)) }.onFailure { err ->
+            runCatching { runPatch(hook) }.onFailure { err ->
                 throw DependedHookFailedException(hook.name, err)
             }.onSuccess {
                 appliedPatches.add(hook)

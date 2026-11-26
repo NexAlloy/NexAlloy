@@ -1,0 +1,5 @@
+<resources>
+    <string name="initialization_title">Initializing NexAlloy for YouTube</string>
+    <string name="initialization_applying_patch">Applying patch: %1$s</string>
+    <string name="initialization_count">%1$d / %2$d</string>
+</resources>

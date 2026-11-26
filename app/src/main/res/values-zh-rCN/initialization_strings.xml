@@ -1,0 +1,5 @@
+<resources>
+    <string name="initialization_title">正在为 YouTube 初始化 NexAlloy</string>
+    <string name="initialization_applying_patch">正在应用补丁：%1$s</string>
+    <string name="initialization_count">%1$d / %2$d</string>
+</resources>
