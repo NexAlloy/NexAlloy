@@ -2,6 +2,7 @@ package io.github.nexalloy.morphe.youtube.misc.litho.filter
 
 import io.github.nexalloy.morphe.shared.misc.litho.context.conversionContextPatch
 import io.github.nexalloy.morphe.shared.misc.litho.filter.sharedLithoFilterPatch
+import io.github.nexalloy.morphe.youtube.misc.fix.litholayout.fixLithoLayoutLoopPatch
 import io.github.nexalloy.morphe.youtube.misc.litho.rendernext.disableRenderNextPatch
 import io.github.nexalloy.morphe.youtube.misc.playservice.VersionCheck
 import io.github.nexalloy.morphe.youtube.misc.playservice.is_21_06_or_greater
@@ -18,6 +19,7 @@ val LithoFilter = sharedLithoFilterPatch(
         fixVerticalScrollPatch,
         VersionCheck,
         conversionContextPatch,
+        fixLithoLayoutLoopPatch,
         disableRenderNextPatch,
     )
 }

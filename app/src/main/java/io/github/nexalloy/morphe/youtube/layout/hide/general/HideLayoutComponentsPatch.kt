@@ -399,10 +399,12 @@ val HideLayoutComponents = patch(
     addLithoFilter(CustomFilter())
     addSpanFilter(SanitizeVideoSubtitleFilter())
     addSpanFilter(SearchLinksFilter())
+    hookElement(KeywordContentFilter::onElementLoaded)
     hookTreeNodeResult(CommentsFilter::hideCommentsFilterBarOptions)
 
     // region hide mix playlists
 
+    hookElement(LayoutComponentsFilter::hideMixCards)
     ParseElementFromBufferFingerprint.hookMethod({
         val emptyComponent = ::emptyComponentClass.clazz.new()
         after {
@@ -417,6 +419,9 @@ val HideLayoutComponents = patch(
     })
 
     // endregion
+
+    // hide 'Members only' chip
+    hookElement(LayoutComponentsFilter::hideMembersOnlyChip)
 
     // region hide watermark (legacy code for old versions of YouTube)
 

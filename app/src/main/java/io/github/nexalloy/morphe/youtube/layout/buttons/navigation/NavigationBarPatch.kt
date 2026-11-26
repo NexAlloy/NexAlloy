@@ -375,7 +375,11 @@ val NavigationBar = patch(
                 if (ClassicSubscriptionsLayoutPatch.needsSubscriptionsPivotBarItem(items)) {
                     val icon = iconLookup.invoke(null, ClassicSubscriptionsLayoutPatch.getSubscriptionsIconType())
                     val proto = itemFactory.invoke(
-                        null, "FEsubscriptions", ClassicSubscriptionsLayoutPatch.getSubscriptionsLabel(), icon, false
+                        null,
+                        "FEsubscriptions",
+                        ClassicSubscriptionsLayoutPatch.getSubscriptionsLabel(),
+                        icon,
+                        ClassicSubscriptionsLayoutPatch.isSubscriptionsIconOnly(),
                     )
                     val optional = renderItem.invoke(null, proto)!!
                     val item = optional.callMethod("orElse", null)

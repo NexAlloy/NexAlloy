@@ -22,6 +22,7 @@ val lithoRelayoutPatch = patch(
     val componentTree = ::lithoComponentTreeField.field
     val layoutAsync = ComponentTreeSetRootAndSizeSpecFingerprint.method
     val adapters = WeakHashMap<View, LithoViewInterface>()
+    val componentTreeAdapters = WeakHashMap<Any, ComponentTreeInterface>()
     LithoRelayoutPatch.setLithoViewAdapter { view ->
         if (!lithoViewClass.isInstance(view)) null
         else adapters.getOrPut(view) {
@@ -29,10 +30,13 @@ val lithoRelayoutPatch = patch(
                 object : LithoViewInterface {
                     override fun patch_getComponentTree(): ComponentTreeInterface? {
                         val tree = reference.get()?.let(componentTree::get) ?: return null
-                        return tree.createProxy { treeReference ->
-                            ComponentTreeInterface {
-                                treeReference.get()?.let {
-                                    layoutAsync.invoke(it, null, -1, -1, true, null, 3, null, null, false, true)
+                        // The extension counts relayouts by adapter identity.
+                        return componentTreeAdapters.getOrPut(tree) {
+                            tree.createProxy { treeReference ->
+                                ComponentTreeInterface {
+                                    treeReference.get()?.let {
+                                        layoutAsync.invoke(it, null, -1, -1, true, null, 3, null, null, false, true)
+                                    }
                                 }
                             }
                         }

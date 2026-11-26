@@ -2,6 +2,7 @@ package io.github.nexalloy.morphe.shared.misc.litho.filter
 
 import app.morphe.extension.shared.patches.components.Filter
 import app.morphe.extension.shared.patches.components.LithoFilterPatch
+import app.morphe.extension.shared.patches.components.LithoFilterPatch.ElementBytesInterface
 import de.robv.android.xposed.XposedHelpers
 import io.github.nexalloy.Patch
 import io.github.nexalloy.PatchExecutor
@@ -83,11 +84,11 @@ internal fun sharedLithoFilterPatch(
         val accessibilityTextMethod = ::accessibilityTextMethod.method
         after { param ->
             val conversion = param.args[1]
-            val bufferParent = param.args[2]
-            // Verify it's the expected subclass just in case.
-            val buffer = if (protoBufferEncodeClass.isInstance(bufferParent)) {
-                protoBufferEncodeMethod(bufferParent) as ByteArray?
-            } else byteArrayOf()
+            val element = param.args[2]
+            // Encode the host message only if a matching filter needs its bytes.
+            val elementBytes = if (protoBufferEncodeClass.isInstance(element)) {
+                ElementBytesInterface { protoBufferEncodeMethod.invoke(element) as ByteArray? }
+            } else null
             val buttonViewModel = buttonViewModelThreadLocal.get()
             buttonViewModelThreadLocal.remove()
             val accessibilityId = buttonViewModel?.let { accessibilityIdMethod(it) as String? }
@@ -95,7 +96,7 @@ internal fun sharedLithoFilterPatch(
 
             if (LithoFilterPatch.isFiltered(
                     ConversionContext(conversion),
-                    buffer,
+                    elementBytes,
                     accessibilityId,
                     accessibilityText
                 )
