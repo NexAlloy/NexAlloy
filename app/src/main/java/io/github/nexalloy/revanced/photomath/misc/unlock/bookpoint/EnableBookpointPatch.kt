@@ -6,5 +6,5 @@ import io.github.nexalloy.patch
 val EnableBookpoint = patch(
     description = "Enables textbook access",
 ) {
-    ::isBookpointEnabledFingerprint.hookMethod(XC_MethodReplacement.returnConstant(true))
+    IsBookpointEnabledFingerprint.hookMethod(XC_MethodReplacement.returnConstant(true))
 }

@@ -6,7 +6,7 @@ val UnlockSubscription = patch(
     name = "Unlock subscription features",
     description = "Unlocks \"Routes\", \"Matched Runs\" and \"Segment Efforts\".",
 ) {
-    ::getSubscribedFingerprint.hookMethod {
+    GetSubscribedFingerprint.hookMethod {
         before { param ->
             param.result = true
         }

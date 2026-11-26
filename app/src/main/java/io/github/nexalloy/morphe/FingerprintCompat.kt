@@ -9,7 +9,6 @@ import java.util.BitSet
 import org.luckypray.dexkit.DexAccessFlags
 import org.luckypray.dexkit.DexKitBridge
 import org.luckypray.dexkit.query.enums.MatchType
-import org.luckypray.dexkit.query.matchers.ClassMatcher
 import org.luckypray.dexkit.query.matchers.MethodMatcher
 import org.luckypray.dexkit.query.matchers.base.OpCodesMatcher
 import org.luckypray.dexkit.result.InstructionData
@@ -108,109 +107,11 @@ private fun findLongestOpcodeSequence(filters: List<InstructionFilter>): List<In
         ?: emptyList()
 }
 
-class FingerprintDsl(init: FingerprintDsl.() -> Unit) {
-    private var name: String? = null
-    private var definingClass: String? = null
-    private var accessFlags: List<AccessFlags>? = null
-    private var returnType: String? = null
-    private var parameters: List<String>? = null
-    private var strings: Array<out String>? = null
-    private var classFinder: FindClassFunc? = null
-    private var classMatcherBlock: (ClassMatcher.() -> Unit)? = null
-    private val methodMatcherBlocks = mutableListOf<MethodMatcher.() -> Unit>()
-
-    init {
-        init(this)
-    }
-
-    fun name(name: String) {
-        this.name = name
-    }
-
-    fun definingClass(descriptor: String) {
-        this.definingClass = descriptor
-    }
-
-    fun strings(vararg strings: String) {
-        this.strings = strings
-    }
-
-    fun opcodes(vararg opcodes: Opcode): OpCodesMatcher {
-        val matcher = OpCodesMatcher(opcodes.map { it.opCode })
-        methodMatcherBlocks += { opCodes(matcher) }
-        return matcher
-    }
-
-    fun accessFlags(vararg accessFlags: AccessFlags) {
-        this.accessFlags = accessFlags.toList()
-    }
-
-    fun parameters(vararg parameters: String) {
-        this.parameters = parameters.toList()
-    }
-
-    fun returns(returnType: String) {
-        this.returnType = returnType
-    }
-
-    fun literal(literalSupplier: () -> Number) {
-        methodMatcherBlocks += { literal(literalSupplier) }
-    }
-
-    fun classFingerprint(findMethodFunc: FindMethodFunc) {
-        classFinder = { findMethodFunc().declaredClass!! }
-    }
-
-    /**
-     * Direct access to DexKit MethodMatcher for custom queries.
-     */
-    fun methodMatcher(block: MethodMatcher.() -> Unit) {
-        methodMatcherBlocks += block
-    }
-
-    /**
-     * DexKit ClassMatcher for chain-matching (find class first, then find method within).
-     */
-    fun classMatcher(block: ClassMatcher.() -> Unit) {
-        classMatcherBlock = block
-    }
-
-    fun build(): Fingerprint {
-        methodMatcherBlocks += {
-            strings?.let { strings(*it) }
-            // Keep the legacy DSL's contains-flags query semantics.
-            this@FingerprintDsl.accessFlags?.let { accessFlags(*it.toTypedArray()) }
-        }
-
-        val fp = Fingerprint(
-            definingClass = definingClass,
-            name = name,
-            returnType = returnType,
-            parameters = parameters,
-        )
-
-        // Apply classFinder or classMatcher
-        if (classFinder != null) {
-            fp.legacyClassFinder = classFinder
-        }
-        if (classMatcherBlock != null) {
-            fp.classMatcherBlock = classMatcherBlock
-        }
-
-        // Apply extra methodMatcher blocks
-        if (methodMatcherBlocks.isNotEmpty()) {
-            fp.extraMethodMatcherBlocks = methodMatcherBlocks.toList()
-        }
-
-        return fp
-    }
-}
-
 /**
- * DexKit Query is not equivalent to instruction matching. <br>
- * This annotation forces the query results to be filtered again using instruction matching.
+ * Applies instruction matching when multiple candidates remain after signature filtering.
+ * A single candidate resolves directly.
  * @see Fingerprint.run
- * */
+ */
 annotation class StrictQuery
 
 open class Fingerprint private constructor(
@@ -227,10 +128,6 @@ open class Fingerprint private constructor(
     val stringFilters: List<StringFilter>? = null,
     val custom: (MethodMatcher.() -> Unit)? = null,
 ) {
-    internal var legacyClassFinder: FindClassFunc? = null
-    internal var classMatcherBlock: (ClassMatcher.() -> Unit)? = null
-    internal var extraMethodMatcherBlocks: List<MethodMatcher.() -> Unit>? = null
-
     context(bridge: DexKitBridge)
     val strings: List<String>?
         get() = stringFilters?.map { it.stringValue }
@@ -248,16 +145,6 @@ open class Fingerprint private constructor(
                 "Strings match in any order and cannot declare an instruction location"
             }
         }
-        if (custom != null)
-            extraMethodMatcherBlocks = listOf(custom)
-    }
-
-    /**
-     * Set class matcher for chain matching (find class first, then method within).
-     * Can be called from object init blocks.
-     */
-    protected fun classMatcher(block: ClassMatcher.() -> Unit) {
-        classMatcherBlock = block
     }
 
     private class Values(
@@ -312,7 +199,7 @@ open class Fingerprint private constructor(
                 opCodes(opcodes)
         }
 
-        extraMethodMatcherBlocks?.forEach { block -> block() }
+        custom?.invoke(this)
     }
 
     context(dexkit: DexKitBridge)
@@ -1085,8 +972,7 @@ open class Fingerprint private constructor(
     /**
      * Finds a unique method result using DexKit query.
      *
-     * Strict queries apply instruction matching before resolving chained fingerprints
-     * and checking the candidate count.
+     * Strict queries use instruction matching to disambiguate multiple candidates.
      */
     context(dexkit: DexKitBridge)
     fun run(): MethodData {
@@ -1122,21 +1008,11 @@ open class Fingerprint private constructor(
     private fun queryAllUncached(): List<MethodData> {
         val values = evaluateValues(dexkit)
         val methodMatcher = buildMethodMatcher(values)
-        val results: List<MethodData> = if (classMatcherBlock != null) {
-            dexkit.findClass {
-                matcher(ClassMatcher().apply(classMatcherBlock!!))
-            }.findMethod {
-                matcher(methodMatcher)
-            }
-        } else if (classFingerprint != null) {
+        val results: List<MethodData> = if (classFingerprint != null) {
             val classes = classFingerprint.queryAll().map { it.declaredClass!! }
 
             dexkit.findMethod {
                 searchInClass(classes)
-                matcher(methodMatcher)
-            }
-        } else if (legacyClassFinder != null) {
-            legacyClassFinder!!.invoke(dexkit).findMethod {
                 matcher(methodMatcher)
             }
         } else {
@@ -1333,14 +1209,6 @@ class Match constructor(
         return "Match(originalMethod=$method, " +
                 "instructionMatches=$_instructionMatches)"
     }
-}
-
-fun DexKitBridge.fingerprint(block: FingerprintDsl.() -> Unit): MethodData {
-    return FingerprintDsl(block).build().run()
-}
-
-fun fingerprint(block: FingerprintDsl.() -> Unit): FindMethodFunc {
-    return { FingerprintDsl(block).build().run() }
 }
 
 fun findMethodDirect(block: FindMethodFunc) = block

@@ -1,11 +1,11 @@
 package io.github.nexalloy.revanced.strava.subscription
 
+import io.github.nexalloy.morphe.Fingerprint
 import io.github.nexalloy.morphe.Opcode
-import io.github.nexalloy.morphe.fingerprint
-import org.luckypray.dexkit.query.enums.StringMatchType
+import io.github.nexalloy.morphe.opcode
 
-val getSubscribedFingerprint = fingerprint {
-    opcodes(Opcode.IGET_BOOLEAN)
-    classMatcher { className(".SubscriptionDetailResponse", StringMatchType.EndsWith) }
-    methodMatcher { name = "getSubscribed" }
-}
+internal object GetSubscribedFingerprint : Fingerprint(
+    definingClass = "/SubscriptionDetailResponse;",
+    name = "getSubscribed",
+    filters = listOf(opcode(Opcode.IGET_BOOLEAN)),
+)

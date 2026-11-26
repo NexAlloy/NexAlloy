@@ -6,7 +6,6 @@ import io.github.nexalloy.morphe.InstructionLocation.MatchAfterWithin
 import io.github.nexalloy.morphe.Opcode
 import io.github.nexalloy.morphe.OpcodesFilter
 import io.github.nexalloy.morphe.fieldAccess
-import io.github.nexalloy.morphe.fingerprint
 import io.github.nexalloy.morphe.methodCall
 
 internal object BackgroundPlaybackDisableFingerprint : Fingerprint(

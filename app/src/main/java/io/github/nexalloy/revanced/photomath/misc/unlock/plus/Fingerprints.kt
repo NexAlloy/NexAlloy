@@ -1,12 +1,13 @@
 package io.github.nexalloy.revanced.photomath.misc.unlock.plus
 
 import io.github.nexalloy.morphe.AccessFlags
-import io.github.nexalloy.morphe.fingerprint
-import org.luckypray.dexkit.query.enums.StringMatchType
+import io.github.nexalloy.morphe.Fingerprint
+import io.github.nexalloy.morphe.StringComparisonType.CONTAINS
+import io.github.nexalloy.morphe.string
 
-val isPlusUnlockedFingerprint = fingerprint {
-    accessFlags(AccessFlags.PUBLIC, AccessFlags.FINAL)
-    returns("Z")
-    strings("genius")
-    classMatcher { className(".User", StringMatchType.EndsWith) }
-}
+internal object IsPlusUnlockedFingerprint : Fingerprint(
+    definingClass = "/User;",
+    accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
+    returnType = "Z",
+    strings = listOf(string("genius", CONTAINS)),
+)

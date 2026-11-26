@@ -8,5 +8,5 @@ val UnlockPlus = patch(
     name = "Unlock plus",
 ) {
     dependsOn(EnableBookpoint)
-    ::isPlusUnlockedFingerprint.hookMethod(XC_MethodReplacement.returnConstant(true))
+    IsPlusUnlockedFingerprint.hookMethod(XC_MethodReplacement.returnConstant(true))
 }

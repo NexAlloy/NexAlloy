@@ -1,11 +1,11 @@
 package io.github.nexalloy.revanced.strava.upselling
 
+import io.github.nexalloy.morphe.Fingerprint
 import io.github.nexalloy.morphe.Opcode
-import io.github.nexalloy.morphe.fingerprint
-import org.luckypray.dexkit.query.enums.StringMatchType
+import io.github.nexalloy.morphe.opcode
 
-val getModulesFingerprint = fingerprint {
-    opcodes(Opcode.IGET_OBJECT)
-    methodMatcher { name = "getModules" }
-    classMatcher { className(".GenericLayoutEntry", StringMatchType.EndsWith) }
-}
+internal object GetModulesFingerprint : Fingerprint(
+    definingClass = "/GenericLayoutEntry;",
+    name = "getModules",
+    filters = listOf(opcode(Opcode.IGET_OBJECT)),
+)
