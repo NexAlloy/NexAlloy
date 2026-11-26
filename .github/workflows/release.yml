@@ -1,46 +1,64 @@
 name: Android Release CI
 
 on:
-  push:
-    tags:
-      - '*.*.*'
+  pull_request:
+    branches: [main]
+    types: [closed]
 
 jobs:
   build:
-
+    if: >-
+      github.event.pull_request.merged &&
+      github.event.pull_request.head.ref == 'release-next' &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-    - uses: actions/checkout@v6
-      with:
-        submodules: true
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          submodules: true
 
-    - name: set up JDK
-      uses: actions/setup-java@v5
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-        cache: gradle
+      - name: Read release version
+        id: version
+        run: |
+          VERSION_CODE=$(awk '$1 == "versionCode" {print $3}' app/build.gradle.kts)
+          echo "version=2.0.$VERSION_CODE" >> "$GITHUB_OUTPUT"
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
 
-    - name: Write key
-      run: |
-        echo KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }} > signing.properties
-        echo KEYSTORE_ALIAS=${{ secrets.KEYSTORE_ALIAS }} >> signing.properties
-        echo KEYSTORE_ALIAS_PASSWORD='${{ secrets.KEYSTORE_ALIAS_PASSWORD }}' >> signing.properties
-        echo KEYSTORE_FILE=../key.jks >> signing.properties
-        echo ${{ secrets.KEYSTORE }} | base64 --decode > key.jks
+      - name: Write key
+        run: |
+          echo KEYSTORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }} > signing.properties
+          echo KEYSTORE_ALIAS=${{ secrets.KEYSTORE_ALIAS }} >> signing.properties
+          echo KEYSTORE_ALIAS_PASSWORD='${{ secrets.KEYSTORE_ALIAS_PASSWORD }}' >> signing.properties
+          echo KEYSTORE_FILE=../key.jks >> signing.properties
+          echo ${{ secrets.KEYSTORE }} | base64 --decode > key.jks
 
-    - name: Build Release
-      run: ./gradlew assembleRelease
+      - name: Build Release
+        run: ./gradlew assembleRelease
 
-    - run: |
-        cd app/build/outputs/apk/release/
-        mv app-release.apk NexAlloy-${{ github.ref_name }}.apk
-        gh release create --prerelease ${{ github.ref_name }} NexAlloy-${{ github.ref_name }}.apk
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish pre-release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          git tag "$VERSION"
+          git push origin "$VERSION"
+          APK="app/build/outputs/apk/release/NexAlloy-$VERSION.apk"
+          mv app/build/outputs/apk/release/app-release.apk "$APK"
+          gh release create "$VERSION" "$APK" --prerelease --notes ''
+
+  prepare-next:
+    needs: build
+    permissions:
+      contents: write
+      pull-requests: write
+    uses: ./.github/workflows/release-pr.yml

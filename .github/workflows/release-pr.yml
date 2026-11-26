@@ -1,0 +1,38 @@
+name: Prepare Release PR
+
+on:
+  workflow_call:
+  # Create the first PR when this workflow is added to main.
+  push:
+    branches: [main]
+    paths: [.github/workflows/release-pr.yml]
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - name: Create next release PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION_CODE=$(awk '$1 == "versionCode" {print $3}' app/build.gradle.kts)
+          NEXT_CODE=$((VERSION_CODE + 1))
+          VERSION="2.0.$NEXT_CODE"
+          sed -i "s/versionCode = $VERSION_CODE/versionCode = $NEXT_CODE/" app/build.gradle.kts
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -c release-next
+          git add app/build.gradle.kts
+          git commit -m "Bump $VERSION"
+          git push --force origin release-next
+
+          gh pr create --base main --head release-next --title "Bump $VERSION" \
+            --body 'Rebase and merge this PR to publish the next pre-release.'
