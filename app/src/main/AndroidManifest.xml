@@ -4,6 +4,8 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <queries>
@@ -47,6 +49,23 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="de.robv.android.xposed.category.MODULE_SETTINGS" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="io.github.nexalloy.action.CHECK_MODULE_UPDATE" />
+            </intent-filter>
+        </activity>
+
+        <activity-alias
+            android:name=".activity.UpdateSettingsAlias"
+            android:exported="false"
+            android:targetActivity=".activity.SettingsActivity" />
+
+        <activity
+            android:name=".activity.UpdateHandoffActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="io.github.nexalloy.action.CHECK_MODULE_UPDATE" />
+            </intent-filter>
         </activity>
 
         <activity
@@ -54,5 +73,14 @@
             android:exported="false"
             android:parentActivityName=".activity.SettingsActivity"
             android:theme="@style/SettingsTheme" />
+
+        <activity
+            android:name=".activity.UpdateInstallActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <receiver
+            android:name=".activity.UpdateInstallStatusReceiver"
+            android:exported="false" />
     </application>
 </manifest>

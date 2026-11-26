@@ -30,6 +30,8 @@ gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesAndroid" }
 fuel = { group = "com.github.kittinunf.fuel", name = "fuel", version.ref = "fuel" }
 okhttp-bom = { module = "com.squareup.okhttp3:okhttp-bom", version.ref = "okhttp" }
+okhttp-client = { module = "com.squareup.okhttp3:okhttp" }
+okhttp-coroutines = { module = "com.squareup.okhttp3:okhttp-coroutines" }
 junit-jupiter-params = { group = "org.junit.jupiter", name = "junit-jupiter-params", version.ref = "junit" }
 jadx-core = { group = "io.github.skylot", name = "jadx-core", version.ref = "jadx" }
 slf4j-simple = { group = "org.slf4j", name = "slf4j-simple", version.ref = "slf4j" }

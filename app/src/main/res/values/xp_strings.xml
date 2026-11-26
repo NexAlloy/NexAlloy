@@ -5,6 +5,14 @@
     <string name="app_description">ChsBuffer\'s LSPosed module, powered by Morphe, ReVanced, and beyond.</string>
     <string name="app_launcher_name">PLACEHOLDER</string>
     <string name="check_for_update_title">Check for update</string>
+    <string name="update_now">Update now</string>
+    <string name="update_progress_title">Updating NexAlloy</string>
+    <string name="update_downloading">Downloading…</string>
+    <string name="update_download_progress">%1$d%% downloaded</string>
+    <string name="update_retry_download">Retry</string>
+    <string name="update_download_failed">Could not download the NexAlloy update.</string>
+    <string name="update_installing">Installing NexAlloy update…</string>
+    <string name="update_install_failed">Could not install the NexAlloy update.</string>
     <string name="patch_selection">Patch Selection</string>
     <string name="force_stop_to_apply_summary">Force stop the corresponding application to apply the settings.</string>
     <string name="about_title">About</string>

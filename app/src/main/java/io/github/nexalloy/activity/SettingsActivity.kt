@@ -23,6 +23,7 @@ import io.github.nexalloy.AppPatchInfo
 import io.github.nexalloy.BuildConfig
 import io.github.nexalloy.R
 import io.github.nexalloy.appPatchConfigurations
+import io.github.nexalloy.common.ACTION_CHECK_MODULE_UPDATE
 import io.github.nexalloy.common.CHECK_BETA_UPDATES
 import io.github.nexalloy.common.UpdateChecker
 import kotlin.system.exitProcess
@@ -58,6 +59,11 @@ class SettingsActivity : Activity(), SettingApplication.ServiceStateListener {
     override fun onStart() {
         super.onStart()
         SettingApplication.addServiceStateListener(this, true)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
     }
 
     override fun onStop() {
@@ -143,7 +149,10 @@ class SettingsActivity : Activity(), SettingApplication.ServiceStateListener {
     class SettingsFragment : PreferenceFragment(), SettingApplication.ServiceStateListener {
         private var mService: XposedService? = null
         private var autoUpdateChecked = false
-        private val updateChecker = UpdateChecker {
+        private lateinit var updateDownload: UpdateDownload
+        private val updateChecker = UpdateChecker(onUpdateAvailable = { release, versionName, betaUpdates, startImmediately ->
+            updateDownload.show(release, versionName, betaUpdates, startImmediately)
+        }) {
             mService?.getRemotePreferences("prefs")?.getBoolean(CHECK_BETA_UPDATES, false) ?: false
         }
 
@@ -164,6 +173,7 @@ class SettingsActivity : Activity(), SettingApplication.ServiceStateListener {
         override fun onCreate(savedInstanceState: Bundle?) {
             super.onCreate(savedInstanceState)
             updateChecker.setActivity(activity)
+            updateDownload = UpdateDownload(activity)
 
             val rootScreen = preferenceManager.createPreferenceScreen(context)
             preferenceScreen = rootScreen
@@ -242,6 +252,31 @@ class SettingsActivity : Activity(), SettingApplication.ServiceStateListener {
             SettingApplication.addServiceStateListener(this, true)
         }
 
+        override fun onResume() {
+            super.onResume()
+            updateDownload.resume()
+            val intent = activity.intent
+            if (intent.action == ACTION_CHECK_MODULE_UPDATE) {
+                intent.action = null
+                autoUpdateChecked = true
+                updateChecker.checkUpdate(
+                    silent = false,
+                    requestedBetaUpdates = intent.getBooleanExtra(CHECK_BETA_UPDATES, false),
+                    startImmediately = intent.component?.className == UPDATE_SETTINGS_ALIAS
+                )
+            }
+        }
+
+        override fun onPause() {
+            updateDownload.pause()
+            super.onPause()
+        }
+
+        override fun onDestroy() {
+            updateDownload.close()
+            super.onDestroy()
+        }
+
         override fun onStop() {
             SettingApplication.removeServiceStateListener(this)
             super.onStop()
@@ -266,7 +301,9 @@ class SettingsActivity : Activity(), SettingApplication.ServiceStateListener {
 
                 updateDynamicUI(isModuleActivated)
                 // Wait for remote preferences before choosing the update channel.
-                if (isModuleActivated && !autoUpdateChecked) {
+                if (isModuleActivated && !autoUpdateChecked &&
+                    activity.intent.action != ACTION_CHECK_MODULE_UPDATE
+                ) {
                     autoUpdateChecked = true
                     updateChecker.autoCheckUpdate()
                 }

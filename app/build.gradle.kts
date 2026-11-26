@@ -163,6 +163,8 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.fuel)
     implementation(platform(libs.okhttp.bom))
+    implementation(libs.okhttp.client)
+    implementation(libs.okhttp.coroutines)
     testImplementation(kotlin("test-junit5"))
     testImplementation(libs.junit.jupiter.params)
     testImplementation(libs.jadx.core)
