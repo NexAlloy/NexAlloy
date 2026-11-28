@@ -28,6 +28,8 @@ val lithoRelayoutPatch = patch(
         else adapters.getOrPut(view) {
             view.createProxy { reference ->
                 object : LithoViewInterface {
+                    override fun patch_getView(): View? = reference.get()
+
                     override fun patch_getComponentTree(): ComponentTreeInterface? {
                         val tree = reference.get()?.let(componentTree::get) ?: return null
                         // The extension counts relayouts by adapter identity.
